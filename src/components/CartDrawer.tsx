@@ -48,9 +48,10 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
 
     setError(null);
     
-    // Check if Stripe key is configured
-    if (!import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY) {
-      setError("Configuração pendente: Por favor, adicione a VITE_STRIPE_PUBLISHABLE_KEY no painel de Segredos.");
+    // Check if Stripe key is configured - use VITE_ prefix for client side
+    const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+    if (!stripeKey || stripeKey === 'pk_test_...') {
+      setError("Configuração pendente: Por favor, configure a chave da Stripe no painel de Segredos (VITE_STRIPE_PUBLISHABLE_KEY).");
       return;
     }
     
@@ -62,12 +63,8 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
 
       const { url } = await createCheckoutSession(cart);
       if (url) {
-        // Use window.open for external checkouts to avoid iframe blocking
-        const checkoutWindow = window.open(url, '_blank');
-        if (!checkoutWindow) {
-          // If popup is blocked, try window direct location
-          window.location.href = url;
-        }
+        // Redirect in the same window for better mobile experience and to avoid popup blockers
+        window.location.assign(url);
       } else {
         throw new Error("Não foi possível gerar o link de pagamento.");
       }

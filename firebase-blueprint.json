@@ -13,7 +13,10 @@
         "image": { "type": "string" },
         "rating": { "type": "number" },
         "isBestSeller": { "type": "boolean" },
-        "tag": { "type": "string" }
+        "tag": { "type": "string" },
+        "maxFlavors": { "type": "number" },
+        "availableFlavors": { "type": "array", "items": { "type": "string" } },
+        "stock": { "type": "number" }
       },
       "required": ["name", "description", "price", "category", "image"]
     },

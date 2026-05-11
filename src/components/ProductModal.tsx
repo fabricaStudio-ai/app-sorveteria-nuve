@@ -58,7 +58,8 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
     window.open(`https://wa.me/5500000000000?text=${text}`, '_blank');
   };
 
-  const showFlavors = (product.maxFlavors || 0) > 0;
+  const showFlavors = (Number(product.maxFlavors) || 0) > 0 || ['sorvetes', 'milkshakes'].includes(product.category);
+  const maxFlavors = Number(product.maxFlavors) || (['sorvetes', 'milkshakes'].includes(product.category) ? 2 : 0);
   const showToppings = ['sorvetes', 'acai', 'milkshakes'].includes(product.category);
 
   return (
@@ -115,12 +116,12 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-white/40 text-[10px] uppercase font-bold tracking-widest">Escolha seus Sabores</h3>
-                    <span className="text-[10px] text-primary/50 font-bold">{selectedFlavors.length}/{product.maxFlavors}</span>
+                    <span className="text-[10px] text-primary/50 font-bold">{selectedFlavors.length}/{maxFlavors}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {(product.availableFlavors && product.availableFlavors.length > 0 ? product.availableFlavors : FLAVORS).map(flavor => {
                       const isSelected = selectedFlavors.includes(flavor);
-                      const isFull = selectedFlavors.length >= (product.maxFlavors || 0);
+                      const isFull = selectedFlavors.length >= (maxFlavors || 0);
                       return (
                         <button
                           key={flavor}
