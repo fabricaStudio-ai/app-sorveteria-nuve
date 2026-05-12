@@ -1,18 +1,23 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, X, Trash2, Plus, Minus, ArrowRight, MessageCircle, CreditCard, Loader2, User as UserIcon } from 'lucide-react';
+import { ShoppingBag, X, Trash2, Plus, Minus, ArrowRight, MessageCircle, CreditCard, Loader2, User as UserIcon, MapPin, Store } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useState } from 'react';
 import { WHATSAPP_PHONE } from '../constants';
 import { createCheckoutSession } from '../lib/stripe';
 import { db } from '../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { cn } from '../lib/utils';
 
 export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   const { cart, updateQuantity, removeFromCart, clearCart, profile, user: authUser } = useApp();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [customerNameInput, setCustomerNameInput] = useState('');
+  const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
+  const [address, setAddress] = useState('');
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+  const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
   const getCustomerName = () => profile?.name || customerNameInput || 'Cliente Anônimo';
 
@@ -25,6 +30,8 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         customerEmail: authUser?.email || '',
         items: cart,
         total: total,
+        deliveryType: deliveryType,
+        address: deliveryType === 'delivery' ? address : 'Retirada na Loja',
         status: 'pending',
         createdAt: new Date().toISOString(),
         orderNumber: orderNumber
@@ -46,10 +53,14 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
       return;
     }
 
+    if (deliveryType === 'delivery' && !address.trim()) {
+      setError("Por favor, informe seu endereço para entrega.");
+      return;
+    }
+
     setError(null);
     
     // Check if Stripe key is configured - use VITE_ prefix for client side
-    const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
     if (!stripeKey || stripeKey === 'pk_test_...') {
       setError("Configuração pendente: Por favor, configure a chave da Stripe no painel de Segredos (VITE_STRIPE_PUBLISHABLE_KEY).");
       return;
@@ -84,13 +95,23 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
       return;
     }
 
+    if (deliveryType === 'delivery' && !address.trim()) {
+      setError("Por favor, informe seu endereço para entrega.");
+      return;
+    }
+
     setIsProcessing(true);
     const orderInfo = await createOrderInFirestore();
     setIsProcessing(false);
 
     let message = `🍦 *NOVO PEDIDO - SORVETERIA NUVÊ*\n`;
     message += `🔢 *Pedido #${orderInfo?.orderNumber}*\n`;
-    message += `👤 *Cliente: ${getCustomerName()}*\n\n`;
+    message += `👤 *Cliente: ${getCustomerName()}*\n`;
+    message += `🚚 *Método: ${deliveryType === 'delivery' ? 'Entrega' : 'Retirada na Loja'}*\n`;
+    if (deliveryType === 'delivery') {
+      message += `📍 *Endereço: ${address}*\n`;
+    }
+    message += `\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     cart.forEach((item, index) => {
@@ -104,7 +125,6 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
 
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
     message += `⭐ *TOTAL: R$ ${(total || 0).toFixed(2)}*\n\n`;
-    message += `📍 _Por favor, me informe o endereço para entrega._`;
 
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${WHATSAPP_PHONE}?text=${encodedMessage}`, '_blank');
@@ -197,7 +217,29 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
               )}
             </div>
 
-            <div className="p-8 glass-dark border-t border-white/5 rounded-t-[3rem] space-y-4">
+            <div className="p-8 glass-dark border-t border-white/5 rounded-t-[3rem] space-y-4 max-h-[60vh] overflow-y-auto">
+              {/* Delivery Type Selector */}
+              <div className="flex gap-2 p-1 glass rounded-2xl mb-4">
+                <button
+                  onClick={() => setDeliveryType('delivery')}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
+                    deliveryType === 'delivery' ? "bg-white text-dark shadow-lg" : "text-white/40 hover:text-white/60"
+                  )}
+                >
+                  <MapPin className="w-4 h-4" /> Entrega
+                </button>
+                <button
+                  onClick={() => setDeliveryType('pickup')}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all",
+                    deliveryType === 'pickup' ? "bg-white text-dark shadow-lg" : "text-white/40 hover:text-white/60"
+                  )}
+                >
+                  <Store className="w-4 h-4" /> Retirada
+                </button>
+              </div>
+
               {!profile && (
                 <div className="space-y-2 mb-4">
                   <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-4">Seu Nome para o Pedido</label>
@@ -209,6 +251,21 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                       value={customerNameInput}
                       onChange={(e) => setCustomerNameInput(e.target.value)}
                       className="w-full glass bg-white/5 p-4 pl-12 rounded-2xl border-white/5 outline-none text-sm font-bold placeholder:text-white/10"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {deliveryType === 'delivery' && (
+                <div className="space-y-2 mb-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-4">Endereço de Entrega</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-4 top-4 w-4 h-4 text-white/20" />
+                    <textarea 
+                      placeholder="Rua, número, bairro e complemento..."
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="w-full glass bg-white/5 p-4 pl-12 rounded-2xl border-white/5 outline-none text-sm font-bold placeholder:text-white/10 min-h-[80px] resize-none"
                     />
                   </div>
                 </div>
@@ -228,7 +285,12 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   whileTap={{ scale: 0.95 }}
                   disabled={cart.length === 0 || isProcessing}
                   onClick={handleOnlinePayment}
-                  className="w-full bg-primary text-dark py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_15px_30px_rgba(0,242,255,0.2)] flex items-center justify-center gap-3 hover:brightness-110 transition-all duration-300 disabled:opacity-50"
+                  className={cn(
+                    "w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50",
+                    (!stripeKey || stripeKey === 'pk_test_...') 
+                      ? "glass text-white/30 border-white/5" 
+                      : "bg-primary text-dark shadow-[0_15px_30px_rgba(0,242,255,0.2)] hover:brightness-110"
+                  )}
                 >
                   {isProcessing ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -241,7 +303,12 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   whileTap={{ scale: 0.95 }}
                   disabled={cart.length === 0 || isProcessing}
                   onClick={handleWhatsAppCheckout}
-                  className="w-full glass py-4 rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 text-white/50 hover:text-white transition-all duration-300 disabled:opacity-50"
+                  className={cn(
+                    "w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50",
+                     (!stripeKey || stripeKey === 'pk_test_...')
+                      ? "bg-primary text-dark shadow-[0_15px_30px_rgba(0,242,255,0.2)] hover:brightness-110"
+                      : "glass text-white/50 hover:text-white"
+                  )}
                 >
                   Pedir via WhatsApp <MessageCircle className="w-5 h-5" />
                 </motion.button>

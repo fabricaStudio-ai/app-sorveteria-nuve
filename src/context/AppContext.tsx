@@ -79,8 +79,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addToCart = (product: Product, quantity: number, notes?: string, flavors: string[] = [], toppings: string[] = []) => {
+    // Normalize optional fields to avoid ID mismatches (e.g. undefined vs "")
+    const normalizedNotes = notes?.trim() || "";
+    const sortedFlavors = [...flavors].sort();
+    const sortedToppings = [...toppings].sort();
+    
     // Generate a unique ID for this specific combination
-    const cartItemId = `${product.id}-${[...flavors].sort().join(',')}-${[...toppings].sort().join(',')}-${notes}`;
+    const cartItemId = `${product.id}-${sortedFlavors.join(',')}-${sortedToppings.join(',')}-${normalizedNotes}`;
 
     setCart(prev => {
       const existing = prev.find(item => item.cartItemId === cartItemId);
@@ -91,8 +96,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             : item
         );
       }
-      return [...prev, { ...product, cartItemId, quantity, notes, flavors, toppings }];
+      return [...prev, { ...product, cartItemId, quantity, notes: normalizedNotes, flavors: sortedFlavors, toppings: sortedToppings }];
     });
+    
+    // Trigger global event or custom state to open cart automatically
+    document.dispatchEvent(new CustomEvent('open-cart'));
   };
 
   const removeFromCart = (cartItemId: string) => {

@@ -23,7 +23,8 @@ function AppContent() {
   const [notification, setNotification] = React.useState({ show: false, message: '' });
   const location = useLocation();
   const navigate = useNavigate();
-  const prevCartLength = React.useRef(cart.length);
+  const prevTotalItems = React.useRef(0);
+  const currentTotalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   // Redirect admin to dashboard if they land on home
   React.useEffect(() => {
@@ -35,11 +36,18 @@ function AppContent() {
 
   // Watch for cart changes to show notification
   React.useEffect(() => {
-     if (cart.length > prevCartLength.current) {
-        setNotification({ show: true, message: 'Item adicionado à nuvem!' });
+     if (currentTotalItems > prevTotalItems.current) {
+        setNotification({ show: true, message: 'Item adicionado ao carrinho!' });
      }
-     prevCartLength.current = cart.length;
-  }, [cart]);
+     prevTotalItems.current = currentTotalItems;
+  }, [currentTotalItems]);
+
+  // Listen for custom event to open cart
+  React.useEffect(() => {
+    const handleOpenCart = () => setIsCartOpen(true);
+    document.addEventListener('open-cart', handleOpenCart);
+    return () => document.removeEventListener('open-cart', handleOpenCart);
+  }, []);
 
   if (loading && !profile) {
     return (

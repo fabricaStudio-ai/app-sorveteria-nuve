@@ -112,44 +112,39 @@ export default function ProductCard({ product, index }: ProductCardProps) {
             </div>
 
             <div className="flex gap-2">
-              {!isAdmin && (
-                <>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={(e) => handleWhatsAppOrder(e)}
-                    className="w-11 h-11 flex items-center justify-center rounded-2xl glass border-white/10 text-primary hover:bg-primary/10 transition-colors"
-                    id={`btn-wa-${product.id}`}
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                  </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => handleWhatsAppOrder(e)}
+                className="w-11 h-11 flex items-center justify-center rounded-2xl glass border-white/10 text-primary hover:bg-primary/10 transition-colors"
+                id={`btn-wa-${product.id}`}
+              >
+                <MessageCircle className="w-5 h-5" />
+              </motion.button>
 
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      addToCart(product, 1);
-                    }}
-                    className="w-11 h-11 flex items-center justify-center rounded-2xl bg-white text-dark hover:bg-primary transition-all duration-300"
-                    id={`btn-add-menu-${product.id}`}
-                  >
-                    <Plus className="w-6 h-6" />
-                  </motion.button>
-                </>
-              )}
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addToCart(product, 1);
+                }}
+                className="w-11 h-11 flex items-center justify-center rounded-2xl bg-white text-dark hover:bg-primary transition-all duration-300"
+                id={`btn-add-menu-${product.id}`}
+              >
+                <Plus className="w-6 h-6" />
+              </motion.button>
+
               {isAdmin && (
-                <div className="flex gap-2">
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/admin?tab=products&edit=${product.id}`);
-                    }}
-                    className="bg-primary text-dark px-4 py-2 rounded-xl border border-primary/20 flex items-center gap-2"
-                  >
-                     <Edit className="w-4 h-4" />
-                     <span className="text-[10px] font-black uppercase tracking-widest">Editar</span>
-                  </motion.button>
-                </div>
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/admin?tab=products&edit=${product.id}`);
+                  }}
+                  className="w-11 h-11 flex items-center justify-center rounded-2xl glass border-primary/20 text-primary hover:bg-primary/10 transition-colors"
+                  title="Editar Produto"
+                >
+                   <Edit className="w-5 h-5" />
+                </motion.button>
               )}
             </div>
           </div>
