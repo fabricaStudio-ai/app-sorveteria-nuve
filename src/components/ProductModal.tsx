@@ -31,9 +31,10 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
     if (selectedFlavors.includes(flavor)) {
       setSelectedFlavors(prev => prev.filter(f => f !== flavor));
     } else {
-      if ((product.maxFlavors || 0) > 0 && selectedFlavors.length < (product.maxFlavors || 0)) {
+      const actualMaxFlavors = Number(product.maxFlavors) || (['sorvetes', 'milkshakes'].includes(product.category) ? 2 : 0);
+      if (actualMaxFlavors > 1 && selectedFlavors.length < actualMaxFlavors) {
         setSelectedFlavors(prev => [...prev, flavor]);
-      } else if (product.maxFlavors === 1) {
+      } else if (actualMaxFlavors === 1) {
         setSelectedFlavors([flavor]);
       }
     }
