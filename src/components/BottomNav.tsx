@@ -43,7 +43,7 @@ export default function BottomNav({ onOpenCart }: { onOpenCart: () => void }) {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[100] bg-dark/80 backdrop-blur-2xl border-t border-white/5 pb-safe pt-2 px-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-[80] bg-dark/80 backdrop-blur-2xl border-t border-white/5 pb-safe pt-2 px-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
       <div className="max-w-md mx-auto flex justify-between items-center">
         {navItems.map((item) => (
           item.onClick ? (

@@ -33,7 +33,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: index * 0.05, duration: 0.4 }}
-        className="glass rounded-[2.5rem] overflow-hidden group shadow-2xl relative active:scale-[0.98] transition-all duration-300"
+        className="glass rounded-[2.5rem] overflow-hidden group shadow-2xl relative active:scale-[0.98] transition-all duration-300 hover:shadow-[0_0_40px_rgba(0,242,255,0.15)] hover:border-primary/20"
         onClick={() => setIsModalOpen(true)}
       >
         <div className="relative aspect-[4/3] overflow-hidden">
