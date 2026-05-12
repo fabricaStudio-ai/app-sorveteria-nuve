@@ -193,31 +193,27 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
             </div>
 
             <div className="p-8 glass-dark border-t border-white/5 flex flex-col gap-3">
+               <button
+                 onClick={handleAdd}
+                 className="w-full bg-white text-dark py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(255,255,255,0.1)] flex items-center justify-center gap-3 active:scale-95 transition-all"
+               >
+                 Adicionar (R$ ${((product.price || 0) * quantity).toFixed(2)})
+               </button>
+               
                {!isAdmin ? (
-                 <>
-                   <button
-                     onClick={handleAdd}
-                     className="w-full bg-white text-dark py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(255,255,255,0.1)] flex items-center justify-center gap-3 active:scale-95 transition-all"
-                   >
-                     Adicionar (R$ ${((product.price || 0) * quantity).toFixed(2)})
-                   </button>
-                   <button
-                     onClick={handleWhatsAppOrder}
-                     className="w-full glass border-primary/20 text-primary py-5 rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all"
-                   >
-                     <MessageCircle className="w-5 h-5" /> Pedir no WhatsApp
-                   </button>
-                 </>
+                 <button
+                   onClick={handleWhatsAppOrder}
+                   className="w-full glass border-primary/20 text-primary py-5 rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all"
+                 >
+                   <MessageCircle className="w-5 h-5" /> Pedir no WhatsApp
+                 </button>
                ) : (
-                 <div className="text-center p-4 flex flex-col gap-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/30 italic">Modo Administrador: Ações de compra desativadas</p>
-                    <button
-                      onClick={() => navigate(`/admin?tab=products&edit=${product.id}`)}
-                      className="w-full bg-primary text-dark py-5 rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all"
-                    >
-                      <Edit className="w-5 h-5" /> Editar Produto
-                    </button>
-                 </div>
+                 <button
+                   onClick={() => navigate(`/admin?tab=products&edit=${product.id}`)}
+                   className="w-full glass border-primary/20 text-primary py-5 rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all"
+                 >
+                   <Edit className="w-5 h-5" /> Editar Produto (Admin)
+                 </button>
                )}
             </div>
           </motion.div>

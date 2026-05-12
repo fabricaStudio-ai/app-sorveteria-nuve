@@ -480,6 +480,16 @@ export default function Admin() {
                   <span className="text-sm font-bold tracking-tight">{item.label}</span>
                 </button>
               ))}
+
+              <div className="h-px bg-white/5 my-4 mx-4" />
+
+              <button
+                onClick={() => navigate('/?view=client')}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
+              >
+                <ShoppingBag className="w-5 h-5" />
+                <span className="text-sm font-bold tracking-tight">Ver Loja (Modo Cliente)</span>
+              </button>
            </nav>
 
            <div className="mt-auto p-5 glass rounded-[2rem] border-white/5 bg-gradient-to-br from-primary/5 to-transparent">

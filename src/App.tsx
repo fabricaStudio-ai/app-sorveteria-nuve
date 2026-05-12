@@ -27,10 +27,11 @@ function AppContent() {
 
   // Redirect admin to dashboard if they land on home
   React.useEffect(() => {
-    if (profile?.isAdmin && location.pathname === '/') {
+    const isViewingStore = new URLSearchParams(location.search).get('view') === 'client';
+    if (profile?.isAdmin && location.pathname === '/' && !isViewingStore) {
       navigate('/admin', { replace: true });
     }
-  }, [profile, location.pathname, navigate]);
+  }, [profile, location.pathname, location.search, navigate]);
 
   // Watch for cart changes to show notification
   React.useEffect(() => {

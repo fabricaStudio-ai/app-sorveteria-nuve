@@ -31,44 +31,36 @@ export default function BottomNav({ onOpenCart }: { onOpenCart: () => void }) {
   }
 
   const navItems: NavItem[] = [
-    { icon: Home, label: profile?.isAdmin ? 'Dashboard' : 'Home', path: '/' },
-    { icon: Search, label: 'Cardápio', path: '/menu' },
+    { icon: Home, label: profile?.isAdmin ? 'Admin' : 'Início', path: profile?.isAdmin ? '/admin' : '/' },
+    { icon: Search, label: 'Lanches', path: '/menu' },
     { 
       icon: ShoppingBag, 
-      label: 'Pedidos', 
-      path: profile?.isAdmin ? '/admin?tab=orders' : '/orders',
-      badge: profile?.isAdmin ? pendingOrdersCount : 0
+      label: 'Carrinho', 
+      onClick: onOpenCart,
+      badge: cartCount
     },
     { icon: User, label: 'Perfil', path: '/profile' },
   ];
 
-  // For non-admins, insert the promo and handle cart
-  if (!profile?.isAdmin) {
-    navItems.splice(2, 0, { icon: Sparkles, label: 'Promos', path: '/promos' });
-  } else {
-    // For admins, replace profile with specific Admin tools if needed or just keep profile
-    // Let's keep it simple and just ensure the pathing is right.
-  }
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-dark/80 backdrop-blur-2xl border-t border-white/5 pb-safe pt-2 px-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-[100] bg-dark/80 backdrop-blur-2xl border-t border-white/5 pb-safe pt-2 px-2 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
       <div className="max-w-md mx-auto flex justify-between items-center">
         {navItems.map((item) => (
           item.onClick ? (
             <button
               key={item.label}
               onClick={item.onClick}
-              className="flex flex-col items-center justify-center p-2 relative rounded-2xl transition-all duration-300 text-white/40 hover:text-white/60"
+              className="flex flex-col items-center justify-center p-2 relative rounded-2xl transition-all duration-300 text-white/40 hover:text-white/60 active:scale-95"
             >
               <div className="relative">
                 <item.icon className="w-6 h-6 transition-transform duration-300" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-2 bg-primary text-dark text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                    {cartCount}
+                {item.badge !== undefined && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-2 bg-primary text-dark text-[10px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center shadow-[0_0_15px_rgba(0,242,255,0.4)]">
+                    {item.badge}
                   </span>
                 )}
               </div>
-              <span className="text-[10px] mt-1 font-medium tracking-wide">
+              <span className="text-[10px] mt-1 font-black uppercase tracking-widest opacity-60">
                 {item.label}
               </span>
             </button>
