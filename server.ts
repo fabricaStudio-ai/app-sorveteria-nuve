@@ -28,7 +28,7 @@ async function startServer() {
       }
 
       const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"], // Stripe supports Pix automatically if enabled in dashboard
+        payment_method_types: ["card"],
         line_items: items.map((item: any) => {
           const description = [
             item.flavors?.length ? `Sabores: ${item.flavors.join(", ")}` : "",
@@ -48,7 +48,7 @@ async function startServer() {
             price_data: {
               currency: "brl",
               product_data,
-              unit_amount: Math.round(item.price * 100),
+              unit_amount: Math.round((item.price || 0) * 100),
             },
             quantity: item.quantity,
           };
@@ -58,10 +58,16 @@ async function startServer() {
         cancel_url: cancel_url || `${process.env.APP_URL || "http://localhost:3000"}/menu`,
       });
 
+      // Log success for debugging
+      console.log("Stripe Session Created:", session.id);
       res.json({ id: session.id, url: session.url });
     } catch (error: any) {
-      console.error("Stripe Error:", error);
-      res.status(500).json({ error: error.message });
+      console.error("CRITICAL STRIPE ERROR:", error);
+      res.status(500).json({ 
+        error: error.message,
+        code: error.code,
+        type: error.type
+      });
     }
   });
 
@@ -82,6 +88,7 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Application URL: ${process.env.APP_URL || 'Not set (using localhost)'}`);
   });
 }
 

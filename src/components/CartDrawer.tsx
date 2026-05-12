@@ -68,20 +68,26 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
     
     try {
       setIsProcessing(true);
+      setError(null);
       
       // Create order first
-      await createOrderInFirestore();
+      const orderInfo = await createOrderInFirestore();
+      if (!orderInfo) {
+        throw new Error("Não foi possível registrar o pedido no banco de dados. Verifique a conexão.");
+      }
 
-      const { url } = await createCheckoutSession(cart);
+      const checkoutResponse = await createCheckoutSession(cart);
+      const url = checkoutResponse.url;
+      
       if (url) {
-        // Redirect in the same window for better mobile experience and to avoid popup blockers
+        // Redirect in the same window for better mobile experience
         window.location.assign(url);
       } else {
-        throw new Error("Não foi possível gerar o link de pagamento.");
+        throw new Error("A sessão do Stripe não retornou uma URL de pagamento válida.");
       }
     } catch (error: any) {
-      console.error(error);
-      setError("Erro ao processar pagamento. Verifique as chaves da Stripe.");
+      console.error("Checkout Error:", error);
+      setError(error.message || "Erro ao processar pagamento. Verifique as chaves da Stripe.");
     } finally {
       setIsProcessing(false);
     }
