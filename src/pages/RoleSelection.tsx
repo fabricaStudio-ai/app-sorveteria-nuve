@@ -4,9 +4,7 @@ import { LayoutDashboard, ShoppingBag, LogOut } from 'lucide-react';
 import { logout } from '../lib/firebase';
 
 export default function RoleSelection() {
-  const { profile, setUserRole } = useApp();
-
-  if (!profile?.isAdmin) return null;
+  const { profile, setUserRole, user } = useApp();
 
   return (
     <div className="min-h-screen bg-dark flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -20,8 +18,10 @@ export default function RoleSelection() {
            animate={{ opacity: 1, y: 0 }}
            className="mb-12"
         >
-           <h1 className="text-4xl font-serif italic text-white mb-4">Bem-vindo, {profile.name}</h1>
-           <p className="text-white/40 text-sm font-medium">Como você deseja acessar o app hoje?</p>
+           <h1 className="text-4xl font-serif italic text-white mb-4">
+             Bem-vindo{profile?.name ? `, ${profile.name}` : user?.displayName ? `, ${user.displayName}` : ''}
+           </h1>
+           <p className="text-white/40 text-sm font-medium">Como você deseja acessar o app nesta sessão?</p>
         </motion.div>
 
         <div className="grid gap-6">

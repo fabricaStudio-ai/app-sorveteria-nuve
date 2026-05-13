@@ -1,19 +1,7 @@
-import { loadStripe } from '@stripe/stripe-js';
-
-const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-
-export const getStripe = () => {
-  if (!publishableKey) {
-    console.warn("Stripe publishable key is missing. Checkout will not work.");
-    return null;
-  }
-  return loadStripe(publishableKey);
-};
-
-export async function createCheckoutSession(items: any[]) {
+export async function createPreference(items: any[]) {
   try {
-    const url = '/api/create-checkout-session';
-    console.log('Fetching Stripe session from:', window.location.origin + url);
+    const url = '/api/create-preference';
+    console.log('Fetching Mercado Pago preference from:', window.location.origin + url);
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -22,17 +10,17 @@ export async function createCheckoutSession(items: any[]) {
       body: JSON.stringify({
         items,
         success_url: window.location.origin + '/orders?success=true',
-        cancel_url: window.location.origin + '/menu',
+        failure_url: window.location.origin + '/cart',
+        pending_url: window.location.origin + '/orders?pending=true',
       }),
     });
 
     if (!response.ok) {
-      let errorMessage = 'Failed to create checkout session';
+      let errorMessage = 'Failed to create payment preference';
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorMessage;
       } catch (e) {
-        // If not JSON, get text
         const text = await response.text();
         console.error('Non-JSON error response:', text);
         errorMessage = `Server error: ${text.substring(0, 100)}...`;
@@ -42,7 +30,7 @@ export async function createCheckoutSession(items: any[]) {
 
     return await response.json();
   } catch (error) {
-    console.error('Error creating checkout session:', error);
+    console.error('Error creating checkout preference:', error);
     throw error;
   }
 }

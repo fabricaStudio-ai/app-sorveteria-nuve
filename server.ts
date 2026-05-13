@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import Stripe from "stripe";
+import { MercadoPagoConfig, Preference } from 'mercadopago';
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -27,58 +27,49 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
-  app.post("/api/create-checkout-session", async (req, res) => {
+  app.post("/api/create-preference", async (req, res) => {
     try {
-      const { items, success_url, cancel_url } = req.body;
+      const { items, success_url, failure_url, pending_url } = req.body;
       
-      const secretKey = process.env.STRIPE_SECRET_KEY;
-      if (!secretKey) {
-        console.error("Stripe secret key missing in environment");
-        return res.status(500).json({ error: "Stripe secret key not configured in server environment" });
+      const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+      if (!accessToken) {
+        console.error("Mercado Pago access token missing in environment");
+        return res.status(500).json({ error: "Mercado Pago access token not configured in server environment" });
       }
 
-      const stripe = new Stripe(secretKey);
+      const client = new MercadoPagoConfig({ accessToken });
+      const preference = new Preference(client);
 
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        line_items: items.map((item: any) => {
-          const description = [
-            item.flavors?.length ? `Sabores: ${item.flavors.join(", ")}` : "",
-            item.toppings?.length ? `Coberturas: ${item.toppings.join(", ")}` : "",
-            item.notes ? `Obs: ${item.notes}` : "",
-          ].filter(Boolean).join(" | ");
-
-          const product_data: any = {
-            name: item.name,
-          };
-
-          if (description) {
-            product_data.description = description;
-          }
-
-          return {
-            price_data: {
-              currency: "brl",
-              product_data,
-              unit_amount: Math.round((item.price || 0) * 100),
-            },
-            quantity: item.quantity,
-          };
-        }),
-        mode: "payment",
-        success_url: success_url || `${process.env.APP_URL || "http://localhost:3000"}/orders?success=true`,
-        cancel_url: cancel_url || `${process.env.APP_URL || "http://localhost:3000"}/menu`,
+      const result = await preference.create({
+        body: {
+          items: items.map((item: any) => ({
+            id: item.id,
+            title: item.name,
+            unit_price: Number(item.price),
+            quantity: Number(item.quantity),
+            currency_id: 'BRL',
+            description: [
+              item.flavors?.length ? `Sabores: ${item.flavors.join(", ")}` : "",
+              item.toppings?.length ? `Coberturas: ${item.toppings.join(", ")}` : "",
+              item.notes ? `Obs: ${item.notes}` : "",
+            ].filter(Boolean).join(" | "),
+          })),
+          back_urls: {
+            success: success_url || `${process.env.APP_URL}/orders?success=true`,
+            failure: failure_url || `${process.env.APP_URL}/menu`,
+            pending: pending_url || `${process.env.APP_URL}/orders?pending=true`,
+          },
+          auto_return: 'approved',
+        }
       });
 
-      // Log success for debugging
-      console.log("Stripe Session Created:", session.id);
-      res.json({ id: session.id, url: session.url });
+      console.log("Mercado Pago Preference Created:", result.id);
+      res.json({ id: result.id, url: result.init_point, sandbox_url: result.sandbox_init_point });
     } catch (error: any) {
-      console.error("CRITICAL STRIPE ERROR:", error);
+      console.error("CRITICAL MERCADO PAGO ERROR:", error);
       res.status(500).json({ 
         error: error.message,
-        code: error.code,
-        type: error.type
+        code: error.status,
       });
     }
   });

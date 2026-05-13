@@ -561,68 +561,12 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-primary/30">
-      <div className="flex flex-col lg:flex-row h-screen overflow-hidden">
+      <div className="flex flex-col h-screen overflow-hidden">
         
-        {/* Sidebar - Desktop */}
-        <aside className="hidden lg:flex flex-col w-64 glass-dark border-r border-white/5 p-6 gap-8">
-           <div className="flex items-center gap-3 px-2">
-              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(0,242,255,0.3)]">
-                 <ChefHat className="w-6 h-6 text-dark" />
-              </div>
-              <h2 className="text-xl font-serif italic font-bold">Nuvê Admin</h2>
-           </div>
-
-           <nav className="flex flex-col gap-2">
-              {[
-                { id: 'overview', icon: LayoutDashboard, label: 'Resumo' },
-                { id: 'products', icon: Package, label: 'Produtos' },
-                { id: 'orders', icon: ShoppingBag, label: 'Pedidos' },
-                { id: 'promotions', icon: Sparkles, label: 'Promoções' },
-                { id: 'finance', icon: Wallet, label: 'Financeiro' },
-                { id: 'payments', icon: CreditCard, label: 'Pagamentos' },
-                { id: 'admins', icon: Users, label: 'Gestores' },
-              ].map((item) => (
-                <button
-                  key={`nav-desktop-${item.id}`}
-                  onClick={() => setActiveTab(item.id as any)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 ${
-                    activeTab === item.id 
-                    ? 'bg-primary text-dark font-bold shadow-[0_10px_20_rgba(0,242,255,0.15)]' 
-                    : 'text-white/40 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className="text-sm font-bold tracking-tight">{item.label}</span>
-                </button>
-              ))}
-
-              <div className="h-px bg-white/5 my-4 mx-4" />
-
-              <button
-                onClick={() => navigate('/?view=client')}
-                className="flex items-center gap-3 px-4 py-3 rounded-2xl text-white/40 hover:text-white hover:bg-white/5 transition-all"
-              >
-                <ShoppingBag className="w-5 h-5" />
-                <span className="text-sm font-bold tracking-tight">Ver Loja (Modo Cliente)</span>
-              </button>
-           </nav>
-
-           <div className="mt-auto p-5 glass rounded-[2rem] border-white/5 bg-gradient-to-br from-primary/5 to-transparent">
-              <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Painel de Gestão</p>
-              <p className="text-xs text-white/40 leading-relaxed mb-4">Administre seu estoque e visualize o crescimento em tempo real.</p>
-              <button 
-                onClick={fetchProducts}
-                className="w-full glass py-3 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-colors"
-              >
-                <RefreshCw className="w-3 h-3" /> Atualizar
-              </button>
-           </div>
-        </aside>
-
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto w-full">
-           {/* Mobile Header */}
-           <header className="lg:hidden flex items-center justify-between p-6 glass-dark border-b border-white/5 sticky top-0 z-50">
+           {/* Header */}
+           <header className="flex items-center justify-between p-6 glass-dark border-b border-white/5 sticky top-0 z-50">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                   <ChefHat className="w-5 h-5 text-dark" />
@@ -634,8 +578,8 @@ export default function Admin() {
               </button>
            </header>
 
-           {/* Mobile Navigation Tabs */}
-           <div className="lg:hidden flex gap-2 px-6 py-4 overflow-x-auto scrollbar-none border-b border-white/5 bg-dark sticky top-[77px] z-40 backdrop-blur-xl">
+           {/* Navigation Tabs */}
+           <div className="flex gap-2 px-6 py-4 overflow-x-auto scrollbar-none border-b border-white/5 bg-dark sticky top-[77px] z-40 backdrop-blur-xl">
               {[
                 { id: 'overview', label: 'Dashboard' },
                 { id: 'products', label: 'Catálogo' },
@@ -657,7 +601,7 @@ export default function Admin() {
               ))}
            </div>
 
-           <div className="p-6 md:p-12 max-w-7xl mx-auto">
+           <div className="p-6">
               <AnimatePresence mode="wait">
                 {activeTab === 'overview' && (
                   <motion.div 

@@ -46,20 +46,21 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-dark flex flex-col items-center justify-center gap-6 p-6 text-center">
-        {/* Minimal loading state that matches splash */}
-        <div className="w-16 h-16 bg-white/5 backdrop-blur-xl rounded-[2.5rem] flex items-center justify-center border border-white/10 animate-pulse">
-           <ShoppingBag className="w-8 h-8 text-primary" />
-        </div>
-        <div className="space-y-2">
-          <div className="w-32 h-1 bg-white/5 rounded-full overflow-hidden mx-auto">
-            <motion.div 
-              className="h-full bg-primary"
-              animate={{ x: [-128, 128] }}
-              transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-            />
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center">
+        <div className="w-full max-w-md h-screen flex flex-col items-center justify-center gap-6 p-6 text-center">
+          <div className="w-16 h-16 bg-white/5 backdrop-blur-xl rounded-[2.5rem] flex items-center justify-center border border-white/10 animate-pulse">
+             <ShoppingBag className="w-8 h-8 text-primary" />
           </div>
-          <p className="text-white/20 text-[10px] font-black uppercase tracking-[0.2em]">Carregando</p>
+          <div className="space-y-2">
+            <div className="w-32 h-1 bg-white/5 rounded-full overflow-hidden mx-auto">
+              <motion.div 
+                className="h-full bg-primary"
+                animate={{ x: [-128, 128] }}
+                transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+              />
+            </div>
+            <p className="text-white/20 text-[10px] font-black uppercase tracking-[0.2em]">Carregando</p>
+          </div>
         </div>
       </div>
     );
@@ -67,27 +68,33 @@ function AppContent() {
 
   // Auth Guard
   if (!user) {
-    return <Auth />;
+    return (
+      <div className="min-h-screen bg-[#050505] flex justify-center">
+        <div className="w-full max-w-md shadow-2xl overflow-hidden">
+          <Auth />
+        </div>
+      </div>
+    );
   }
 
   // Role Guard
-  if (profile?.isAdmin && !userRole) {
-    return <RoleSelection />;
+  if (user && !userRole) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex justify-center">
+        <div className="w-full max-w-md shadow-2xl overflow-hidden">
+          <RoleSelection />
+        </div>
+      </div>
+    );
   }
 
-  const isActuallyAdminRoute = location.pathname.startsWith('/admin') || userRole === 'admin';
-  const isShowingAdminContent = profile?.isAdmin && (location.pathname === '/' || isActuallyAdminRoute);
-
   return (
-    <div className="min-h-screen bg-dark">
+    <div className="min-h-screen bg-[#050505] flex justify-center selection:bg-primary/30">
       <AnimatePresence mode="wait">
         {isSplashVisible && <Splash key="splash" />}
       </AnimatePresence>
 
-      <main className={cn(
-        "relative min-h-screen",
-        isActuallyAdminRoute ? "w-full" : "max-w-md mx-auto pb-32"
-      )}>
+      <main className="relative min-h-screen w-full max-w-md bg-dark shadow-2xl pb-32">
         <AnimatePresence mode="wait">
           <div key={location.pathname}>
             <Routes location={location}>
@@ -113,7 +120,13 @@ function AppContent() {
       <WhatsAppFAB />
       <PWAInstallPrompt />
 
-      {!isSplashVisible && <BottomNav onOpenCart={() => setIsCartOpen(true)} />}
+      {!isSplashVisible && (
+        <div className="fixed bottom-0 left-0 right-0 z-[80] pointer-events-none">
+          <div className="max-w-md mx-auto pointer-events-auto">
+            <BottomNav onOpenCart={() => setIsCartOpen(true)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

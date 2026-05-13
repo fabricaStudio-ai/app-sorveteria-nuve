@@ -49,8 +49,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           handleFirestoreError(e, OperationType.GET, `profiles/${currentUser.uid}`);
           return;
         }
-        
-        if (profileSnap.exists()) {
+                if (profileSnap.exists()) {
           const profileData = profileSnap.data() as UserProfile;
           
           // Check for admin status via 'admins' collection
@@ -74,10 +73,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           
           setProfile(updatedProfile);
           
-          if (!isActuallyAdmin) {
-            setUserRole('customer');
-          } else if (userRole === null) {
-            // Admin needs to select role, but we might want to check session storage/cache
+          if (userRole === null) {
+            // All users need to select role
             // For now, leave as null to trigger role selection screen
           }
           
@@ -112,8 +109,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             handleFirestoreError(e, OperationType.WRITE, `profiles/${currentUser.uid}`);
           }
           setProfile(newProfile);
-          if (!isActuallyAdmin) {
-            setUserRole('customer');
+          if (userRole === null) {
+            // All users need to selection
           }
         }
       } else {

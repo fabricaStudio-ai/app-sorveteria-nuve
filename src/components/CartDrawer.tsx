@@ -3,7 +3,7 @@ import { ShoppingBag, X, Trash2, Plus, Minus, ArrowRight, MessageCircle, CreditC
 import { useApp } from '../context/AppContext';
 import { useState, useEffect } from 'react';
 import { WHATSAPP_PHONE } from '../constants';
-import { createCheckoutSession } from '../lib/stripe';
+import { createPreference } from '../lib/mercadopago';
 import { db } from '../lib/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { cn } from '../lib/utils';
@@ -28,7 +28,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
     };
   }, [isOpen]);
 
-  const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+  const mpPublicKey = import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY;
 
   const getCustomerName = () => profile?.name || customerNameInput || 'Cliente Anônimo';
 
@@ -71,9 +71,9 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
 
     setError(null);
     
-    // Check if Stripe key is configured - use VITE_ prefix for client side
-    if (!stripeKey || stripeKey === 'pk_test_...') {
-      setError("Configuração pendente: Por favor, configure a chave da Stripe no painel de Segredos (VITE_STRIPE_PUBLISHABLE_KEY).");
+    // Check if Mercado Pago key is configured
+    if (!mpPublicKey || mpPublicKey === 'APP_USR-...') {
+      setError("Configuração pendente: Por favor, configure a chave pública do Mercado Pago nos Segredos (VITE_MERCADO_PAGO_PUBLIC_KEY).");
       return;
     }
     
@@ -87,18 +87,18 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         throw new Error("Não foi possível registrar o pedido no banco de dados. Verifique a conexão.");
       }
 
-      const checkoutResponse = await createCheckoutSession(cart);
-      const url = checkoutResponse.url;
+      const checkoutResponse = await createPreference(cart);
+      const url = checkoutResponse.url || checkoutResponse.sandbox_url;
       
       if (url) {
         // Redirect in the same window for better mobile experience
         window.location.assign(url);
       } else {
-        throw new Error("A sessão do Stripe não retornou uma URL de pagamento válida.");
+        throw new Error("A sessão do Mercado Pago não retornou uma URL de pagamento válida.");
       }
     } catch (error: any) {
       console.error("Checkout Error:", error);
-      setError(error.message || "Erro ao processar pagamento. Verifique as chaves da Stripe.");
+      setError(error.message || "Erro ao processar pagamento. Verifique as chaves do Mercado Pago.");
     } finally {
       setIsProcessing(false);
     }
@@ -313,7 +313,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   onClick={handleOnlinePayment}
                   className={cn(
                     "w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50",
-                    (!stripeKey || stripeKey === 'pk_test_...') 
+                    (!mpPublicKey || mpPublicKey === 'APP_USR-...') 
                       ? "glass text-white/30 border-white/5" 
                       : "bg-primary text-dark shadow-[0_15px_30px_rgba(0,242,255,0.2)] hover:brightness-110"
                   )}
@@ -321,7 +321,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   {isProcessing ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <>Pagar Online <CreditCard className="w-4 h-4" /></>
+                    <>Pagar c/ Mercado Pago <CreditCard className="w-4 h-4" /></>
                   )}
                 </motion.button>
 
@@ -331,7 +331,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   onClick={handleWhatsAppCheckout}
                   className={cn(
                     "w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50",
-                     (!stripeKey || stripeKey === 'pk_test_...')
+                     (!mpPublicKey || mpPublicKey === 'APP_USR-...')
                       ? "bg-primary text-dark shadow-[0_15px_30px_rgba(0,242,255,0.2)] hover:brightness-110"
                       : "glass text-white/50 hover:text-white"
                   )}
