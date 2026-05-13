@@ -1,7 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { AnimatePresence } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
+import { ShoppingBag } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
+import { cn } from './lib/utils';
 import Splash from './components/Splash';
 import BottomNav from './components/BottomNav';
 import CartDrawer from './components/CartDrawer';
@@ -12,27 +14,20 @@ import Home from './pages/Home';
 import Menu from './pages/Menu';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
+import Auth from './pages/Auth';
+import RoleSelection from './pages/RoleSelection';
 
 // Empty pages for routing demonstration
 const Promos = () => <div className="p-8 text-center text-white/40">Promoções em breve...</div>;
 const Orders = () => <div className="p-8 text-center text-white/40">Seus pedidos aparecerão aqui.</div>;
 
 function AppContent() {
-  const { isSplashVisible, cart, profile, loading } = useApp();
+  const { isSplashVisible, cart, profile, loading, user, userRole } = useApp();
   const [isCartOpen, setIsCartOpen] = React.useState(false);
   const [notification, setNotification] = React.useState({ show: false, message: '' });
   const location = useLocation();
-  const navigate = useNavigate();
   const prevTotalItems = React.useRef(0);
   const currentTotalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
-
-  // Redirect admin to dashboard if they land on home
-  React.useEffect(() => {
-    const isViewingStore = new URLSearchParams(location.search).get('view') === 'client';
-    if (profile?.isAdmin && location.pathname === '/' && !isViewingStore) {
-      navigate('/admin', { replace: true });
-    }
-  }, [profile, location.pathname, location.search, navigate]);
 
   // Watch for cart changes to show notification
   React.useEffect(() => {
@@ -49,14 +44,39 @@ function AppContent() {
     return () => document.removeEventListener('open-cart', handleOpenCart);
   }, []);
 
-  if (loading && !profile) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-dark flex flex-col items-center justify-center gap-4 text-center">
-        <div className="w-12 h-12 border-2 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
-        <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">Sincronizando dados...</p>
+      <div className="min-h-screen bg-dark flex flex-col items-center justify-center gap-6 p-6 text-center">
+        {/* Minimal loading state that matches splash */}
+        <div className="w-16 h-16 bg-white/5 backdrop-blur-xl rounded-[2.5rem] flex items-center justify-center border border-white/10 animate-pulse">
+           <ShoppingBag className="w-8 h-8 text-primary" />
+        </div>
+        <div className="space-y-2">
+          <div className="w-32 h-1 bg-white/5 rounded-full overflow-hidden mx-auto">
+            <motion.div 
+              className="h-full bg-primary"
+              animate={{ x: [-128, 128] }}
+              transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+            />
+          </div>
+          <p className="text-white/20 text-[10px] font-black uppercase tracking-[0.2em]">Carregando</p>
+        </div>
       </div>
     );
   }
+
+  // Auth Guard
+  if (!user) {
+    return <Auth />;
+  }
+
+  // Role Guard
+  if (profile?.isAdmin && !userRole) {
+    return <RoleSelection />;
+  }
+
+  const isActuallyAdminRoute = location.pathname.startsWith('/admin') || userRole === 'admin';
+  const isShowingAdminContent = profile?.isAdmin && (location.pathname === '/' || isActuallyAdminRoute);
 
   return (
     <div className="min-h-screen bg-dark">
@@ -64,11 +84,14 @@ function AppContent() {
         {isSplashVisible && <Splash key="splash" />}
       </AnimatePresence>
 
-      <main className="max-w-md mx-auto relative pb-32">
+      <main className={cn(
+        "relative min-h-screen",
+        isActuallyAdminRoute ? "w-full" : "max-w-md mx-auto pb-32"
+      )}>
         <AnimatePresence mode="wait">
           <div key={location.pathname}>
             <Routes location={location}>
-              <Route path="/" element={profile?.isAdmin ? <Admin /> : <Home />} />
+              <Route path="/" element={userRole === 'admin' ? <Admin /> : <Home />} />
               <Route path="/menu" element={<Menu />} />
               <Route path="/promos" element={<Promos />} />
               <Route path="/orders" element={<Orders />} />

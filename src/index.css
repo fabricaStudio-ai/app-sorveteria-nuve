@@ -32,11 +32,25 @@
     text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
   }
 
-  /* Custom scrollbar for mobile feel */
+  /* Custom scrollbar for subtle feel */
   ::-webkit-scrollbar {
-    width: 0px;
-    height: 0px;
+    width: 6px;
+    height: 6px;
   }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-white/20 transition-colors;
+  }
+}
+
+html, body {
+  overflow-x: hidden;
+  height: auto;
+  min-height: 100%;
 }
 
 /* Page transitions */

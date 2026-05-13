@@ -12,7 +12,9 @@ export const getStripe = () => {
 
 export async function createCheckoutSession(items: any[]) {
   try {
-    const response = await fetch('/api/create-checkout-session', {
+    const url = '/api/create-checkout-session';
+    console.log('Fetching Stripe session from:', window.location.origin + url);
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -25,8 +27,17 @@ export async function createCheckoutSession(items: any[]) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to create checkout session');
+      let errorMessage = 'Failed to create checkout session';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // If not JSON, get text
+        const text = await response.text();
+        console.error('Non-JSON error response:', text);
+        errorMessage = `Server error: ${text.substring(0, 100)}...`;
+      }
+      throw new Error(errorMessage);
     }
 
     return await response.json();

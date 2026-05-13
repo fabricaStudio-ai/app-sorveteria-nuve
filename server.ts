@@ -10,22 +10,34 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
-
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(express.json());
 
+  // Logging middleware
+  app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+    next();
+  });
+
   // API Routes
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   app.post("/api/create-checkout-session", async (req, res) => {
     try {
       const { items, success_url, cancel_url } = req.body;
       
-      if (!process.env.STRIPE_SECRET_KEY) {
-        return res.status(500).json({ error: "Stripe secret key not configured" });
+      const secretKey = process.env.STRIPE_SECRET_KEY;
+      if (!secretKey) {
+        console.error("Stripe secret key missing in environment");
+        return res.status(500).json({ error: "Stripe secret key not configured in server environment" });
       }
+
+      const stripe = new Stripe(secretKey);
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],

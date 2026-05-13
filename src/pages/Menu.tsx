@@ -22,14 +22,10 @@ export default function Menu() {
       try {
         const snap = await getDocs(collection(db, 'products'));
         const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        if (data.length > 0) {
-          setAllProducts(data);
-        } else {
-          setAllProducts(PRODUCTS);
-        }
+        setAllProducts(data);
       } catch (e) {
         console.error(e);
-        setAllProducts(PRODUCTS);
+        setAllProducts([]);
       } finally {
         setLoading(false);
       }
@@ -101,7 +97,7 @@ export default function Menu() {
         </div>
 
         {/* Categories Pills */}
-        <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-none -mx-6 px-6">
+        <div className="flex gap-3 overflow-x-auto pb-4 -mx-6 px-6">
           <button
             onClick={() => setActiveCategory('todos')}
             className={`px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest border transition-all duration-500 whitespace-nowrap ${

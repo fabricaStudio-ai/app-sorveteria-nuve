@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { ShoppingBag, X, Trash2, Plus, Minus, ArrowRight, MessageCircle, CreditCard, Loader2, User as UserIcon, MapPin, Store } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { WHATSAPP_PHONE } from '../constants';
 import { createCheckoutSession } from '../lib/stripe';
 import { db } from '../lib/firebase';
@@ -16,6 +16,17 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
   const [address, setAddress] = useState('');
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 

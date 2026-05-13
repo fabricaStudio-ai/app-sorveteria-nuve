@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem, Product } from '../types';
-import { auth, db } from '../lib/firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
@@ -22,6 +22,8 @@ interface AppContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  userRole: 'admin' | 'customer' | null;
+  setUserRole: (role: 'admin' | 'customer' | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -32,6 +34,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<'admin' | 'customer' | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -39,11 +42,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (currentUser) {
         // Fetch or create profile
         const profileRef = doc(db, 'profiles', currentUser.uid);
-        const profileSnap = await getDoc(profileRef);
+        let profileSnap;
+        try {
+          profileSnap = await getDoc(profileRef);
+        } catch (e) {
+          handleFirestoreError(e, OperationType.GET, `profiles/${currentUser.uid}`);
+          return;
+        }
         
         if (profileSnap.exists()) {
           const profileData = profileSnap.data() as UserProfile;
-          const isActuallyAdmin = currentUser.email?.toLowerCase().trim() === 'fabricasoftwareai@gmail.com';
+          
+          // Check for admin status via 'admins' collection
+          const adminRef = doc(db, 'admins', currentUser.uid);
+          let adminSnap;
+          try {
+            adminSnap = await getDoc(adminRef);
+          } catch (e) {
+            handleFirestoreError(e, OperationType.GET, `admins/${currentUser.uid}`);
+            return;
+          }
+          
+          // Safety fallback for the bootstrap admin email
+          const isBootstrapAdmin = currentUser.email?.toLowerCase().trim() === 'fabricasoftwareai@gmail.com';
+          const isActuallyAdmin = adminSnap.exists() || isBootstrapAdmin;
           
           const updatedProfile = {
             ...profileData,
@@ -52,25 +74,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           
           setProfile(updatedProfile);
           
-          // Update firestore if state is inconsistent
+          if (!isActuallyAdmin) {
+            setUserRole('customer');
+          } else if (userRole === null) {
+            // Admin needs to select role, but we might want to check session storage/cache
+            // For now, leave as null to trigger role selection screen
+          }
+          
+          // Update profile if state changed (for local caching consistency)
           if (profileData.isAdmin !== isActuallyAdmin) {
             updateDoc(profileRef, { isAdmin: isActuallyAdmin }).catch(e => {
               console.error("Failed to sync admin status:", e);
             });
           }
         } else {
-          const isActuallyAdmin = currentUser.email?.toLowerCase().trim() === 'fabricasoftwareai@gmail.com';
+          // New profile: check admin status first
+          const adminRef = doc(db, 'admins', currentUser.uid);
+          let adminSnap;
+          try {
+            adminSnap = await getDoc(adminRef);
+          } catch (e) {
+            handleFirestoreError(e, OperationType.GET, `admins/${currentUser.uid}`);
+            return;
+          }
+          const isBootstrapAdmin = currentUser.email?.toLowerCase().trim() === 'fabricasoftwareai@gmail.com';
+          const isActuallyAdmin = adminSnap.exists() || isBootstrapAdmin;
+          
           const newProfile: UserProfile = {
             userId: currentUser.uid,
             name: currentUser.displayName || '',
             email: currentUser.email || '',
             isAdmin: isActuallyAdmin,
           };
-          await setDoc(profileRef, newProfile);
+          try {
+            await setDoc(profileRef, newProfile);
+          } catch (e) {
+            handleFirestoreError(e, OperationType.WRITE, `profiles/${currentUser.uid}`);
+          }
           setProfile(newProfile);
+          if (!isActuallyAdmin) {
+            setUserRole('customer');
+          }
         }
       } else {
         setProfile(null);
+        setUserRole(null);
       }
       setLoading(false);
     });
@@ -130,7 +178,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSplashVisible,
       user,
       profile,
-      loading
+      loading,
+      userRole,
+      setUserRole
     }}>
       {children}
     </AppContext.Provider>

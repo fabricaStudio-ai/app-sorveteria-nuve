@@ -73,6 +73,15 @@
         "details": { "type": "string" }
       },
       "required": ["name", "type", "isActive"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "System administrators mapping",
+      "type": "object",
+      "properties": {
+        "addedAt": { "type": "string", "format": "date-time" },
+        "addedBy": { "type": "string" }
+      }
     }
   },
   "firestore": {
@@ -95,6 +104,10 @@
     "paymentMethods": {
       "schema": "PaymentMethod",
       "description": "Configurations for payment forms"
+    },
+    "admins": {
+      "schema": "Admin",
+      "description": "Whitelisted administrator UIDs"
     }
   }
 }

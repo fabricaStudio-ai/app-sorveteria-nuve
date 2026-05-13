@@ -17,24 +17,17 @@ export default function Home() {
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
-        const q = query(collection(db, 'products'), limit(10));
+        const q = query(collection(db, 'products'), limit(15));
         const snap = await getDocs(q);
         const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         
-        if (data.length > 0) {
-          setDbProducts(data);
-          setFeaturedProducts(data.filter(p => p.isBestSeller).slice(0, 3));
-          setCombos(data.filter(p => p.category === 'combos'));
-        } else {
-          // Fallback to static if DB is empty
-          setFeaturedProducts(PRODUCTS.filter(p => p.isBestSeller).slice(0, 3));
-          setCombos(PRODUCTS.filter(p => p.category === 'combos'));
-        }
+        setDbProducts(data);
+        setFeaturedProducts(data.filter(p => p.isBestSeller).slice(0, 3));
+        setCombos(data.filter(p => p.category === 'combos'));
       } catch (e) {
         console.error(e);
-        // Fallback
-        setFeaturedProducts(PRODUCTS.filter(p => p.isBestSeller).slice(0, 3));
-        setCombos(PRODUCTS.filter(p => p.category === 'combos'));
+        setFeaturedProducts([]);
+        setCombos([]);
       }
     };
     fetchHomeData();
@@ -93,7 +86,7 @@ export default function Home() {
       {/* Categories */}
       <section className="mb-10 overflow-hidden">
         <h3 className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mb-5 px-1">Categorias</h3>
-        <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1 scrollbar-none">
+        <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1">
           {CATEGORIES.map((cat, idx) => (
             <motion.div
               key={cat.id}

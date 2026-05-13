@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Home, Search, Settings, ShoppingBag, User, Sparkles } from 'lucide-react';
+import { Home, IceCream, Settings, ShoppingBag, User, Sparkles, LayoutDashboard, ChefHat, Package, Wallet } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -8,19 +8,19 @@ import { cn } from '../lib/utils';
 import { useApp } from '../context/AppContext';
 
 export default function BottomNav({ onOpenCart }: { onOpenCart: () => void }) {
-  const { cart, profile } = useApp();
+  const { cart, profile, userRole } = useApp();
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   useEffect(() => {
-    if (!profile?.isAdmin) return;
+    if (userRole !== 'admin') return;
     
     const q = query(collection(db, 'orders'), where('status', '==', 'pending'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setPendingOrdersCount(snapshot.size);
     });
     return () => unsubscribe();
-  }, [profile]);
+  }, [userRole]);
 
   interface NavItem {
     icon: any;
@@ -30,9 +30,18 @@ export default function BottomNav({ onOpenCart }: { onOpenCart: () => void }) {
     badge?: number;
   }
 
-  const navItems: NavItem[] = [
-    { icon: Home, label: profile?.isAdmin ? 'Admin' : 'Início', path: profile?.isAdmin ? '/admin' : '/' },
-    { icon: Search, label: 'Lanches', path: '/menu' },
+  const navItems: NavItem[] = userRole === 'admin' ? [
+    { icon: LayoutDashboard, label: 'Painel', path: '/admin?tab=overview' },
+    { icon: ChefHat, label: 'Cozinha', path: '/admin?tab=orders', badge: pendingOrdersCount },
+    { 
+      icon: Package, 
+      label: 'Estoque', 
+      path: '/admin?tab=products'
+    },
+    { icon: User, label: 'Perfil', path: '/profile' },
+  ] : [
+    { icon: Home, label: 'Início', path: '/' },
+    { icon: IceCream, label: 'Lanches', path: '/menu' },
     { 
       icon: ShoppingBag, 
       label: 'Carrinho', 

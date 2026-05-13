@@ -15,7 +15,7 @@ import {
   setDoc,
   limit
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Product, Transaction, PaymentMethod, Order } from '../types';
 import { PRODUCTS } from '../constants';
 import { useApp } from '../context/AppContext';
@@ -30,6 +30,7 @@ import {
   DollarSign, 
   ShoppingBag, 
   Users, 
+  User as UserIcon,
   BarChart3, 
   ChefHat,
   ChevronRight,
@@ -68,16 +69,6 @@ import {
 } from 'recharts';
 import { cn } from '../lib/utils';
 
-const chartData = [
-  { name: 'Seg', sales: 4000, orders: 24, expense: 1200 },
-  { name: 'Ter', sales: 3000, orders: 18, expense: 800 },
-  { name: 'Qua', sales: 2000, orders: 12, expense: 1500 },
-  { name: 'Qui', sales: 2780, orders: 20, expense: 900 },
-  { name: 'Sex', sales: 1890, orders: 15, expense: 1100 },
-  { name: 'Sáb', sales: 2390, orders: 25, expense: 2000 },
-  { name: 'Dom', sales: 3490, orders: 30, expense: 500 },
-];
-
 const COLORS = ['#00f2ff', '#7000ff', '#ff00d4', '#ff8c00', '#00ff8c'];
 
 export default function Admin() {
@@ -87,13 +78,40 @@ export default function Admin() {
   const queryParams = new URLSearchParams(location.search);
   const initialTab = queryParams.get('tab') as any;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'finance' | 'payments'>(
-    initialTab && ['overview', 'products', 'orders', 'finance', 'payments'].includes(initialTab) 
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'finance' | 'payments' | 'admins'>(
+    initialTab && ['overview', 'products', 'orders', 'finance', 'payments', 'admins'].includes(initialTab) 
     ? initialTab 
     : 'overview'
   );
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [showAddAdmin, setShowAddAdmin] = useState(false);
+  const [newAdminId, setNewAdminId] = useState('');
+
+  const fetchAdmins = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, 'admins'));
+      setAdmins(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.GET, 'admins');
+    }
+  };
+
+  const handleAddAdmin = async () => {
+    if (!newAdminId) return;
+    try {
+      await setDoc(doc(db, 'admins', newAdminId), {
+        addedAt: new Date().toISOString(),
+        addedBy: profile?.userId || 'system'
+      });
+      setNewAdminId('');
+      setShowAddAdmin(false);
+      fetchAdmins();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, `admins/${newAdminId}`);
+    }
+  };
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -159,7 +177,7 @@ export default function Admin() {
     if (modalProcessedRef.current === currentSearch) return;
 
     if (editId && (products.length > 0 || !loading)) {
-      const productToEdit = products.find(p => p.id === editId) || PRODUCTS.find(p => p.id === editId);
+      const productToEdit = products.find(p => p.id === editId);
       if (productToEdit) {
         modalProcessedRef.current = currentSearch;
         openProductModal(productToEdit);
@@ -180,6 +198,7 @@ export default function Admin() {
     fetchProducts();
     fetchTransactions();
     fetchPaymentMethods();
+    fetchAdmins();
 
     // Sound for notifications
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -206,7 +225,7 @@ export default function Admin() {
       }
       prevOrdersCount.current = ordersData.length;
     }, (error) => {
-      console.error("Firestore onSnapshot error:", error);
+      handleFirestoreError(error, OperationType.LIST, 'orders');
     });
 
     return () => unsubscribe();
@@ -216,7 +235,7 @@ export default function Admin() {
     try {
       await updateDoc(doc(db, 'orders', orderId), { status: newStatus });
     } catch (e) {
-      console.error(e);
+      handleFirestoreError(e, OperationType.UPDATE, `orders/${orderId}`);
     }
   };
 
@@ -227,7 +246,7 @@ export default function Admin() {
       const prods = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
       setProducts(prods);
     } catch (e) {
-      console.error(e);
+      handleFirestoreError(e, OperationType.GET, 'products');
     } finally {
       setLoading(false);
     }
@@ -239,7 +258,7 @@ export default function Admin() {
       const trans = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
       setTransactions(trans.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     } catch (e) {
-      console.error(e);
+      handleFirestoreError(e, OperationType.GET, 'transactions');
     }
   };
 
@@ -249,7 +268,7 @@ export default function Admin() {
       const methods = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as PaymentMethod));
       setPaymentMethods(methods);
     } catch (e) {
-      console.error(e);
+      handleFirestoreError(e, OperationType.GET, 'paymentMethods');
     }
   };
 
@@ -267,7 +286,7 @@ export default function Admin() {
       setNewTransaction({ type: 'expense', category: 'Ingredientes', description: '', amount: '' });
       fetchTransactions();
     } catch (e) {
-      console.error(e);
+      handleFirestoreError(e, OperationType.WRITE, 'transactions');
     }
   };
 
@@ -394,6 +413,47 @@ export default function Admin() {
     .reduce((acc, t) => acc + t.amount, 0);
   const profit = totalIncome - totalExpense;
 
+  // New Dynamic Stats for Overview
+  const today = new Date().toISOString().split('T')[0];
+  const ordersToday = orders.filter(o => o.createdAt.startsWith(today));
+  const incomeToday = transactions
+    .filter(t => t.type === 'income' && t.date.startsWith(today))
+    .reduce((acc, t) => acc + t.amount, 0);
+  
+  const totalSalesValue = orders
+    .filter(o => o.status !== 'cancelled')
+    .reduce((acc, o) => acc + o.total, 0);
+  
+  const dailyStats = [
+    { label: 'Vendas Totais', value: `R$ ${totalSalesValue.toLocaleString('pt-BR')}`, icon: DollarSign, trend: '+--%', color: 'text-primary', delay: 0 },
+    { label: 'Pedidos do Dia', value: ordersToday.length.toString(), icon: ShoppingBag, trend: '+--%', color: 'text-secondary', delay: 0.1 },
+    { label: 'Saldo Hoje', value: `R$ ${incomeToday.toLocaleString('pt-BR')}`, icon: Wallet, trend: '+--%', color: 'text-emerald-400', delay: 0.2 },
+    { label: 'Total Produtos', value: products.length.toString(), icon: Package, trend: '--', color: 'text-orange-500', delay: 0.3 },
+  ];
+
+  // Dynamic Chart Data from last 7 days
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().split('T')[0];
+  });
+
+  const dynamicChartData = last7Days.map(date => {
+    const dayName = new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' });
+    const dayOrders = orders.filter(o => o.createdAt.startsWith(date));
+    const daySales = dayOrders.reduce((acc, o) => acc + o.total, 0);
+    const dayExpenses = transactions
+      .filter(t => t.type === 'expense' && t.date.startsWith(date))
+      .reduce((acc, t) => acc + t.amount, 0);
+    
+    return {
+      name: dayName.charAt(0).toUpperCase() + dayName.slice(1),
+      sales: daySales,
+      orders: dayOrders.length,
+      expense: dayExpenses
+    };
+  });
+
   const financeCategories = transactions.reduce((acc: any, t) => {
     if (t.type === 'expense') {
       acc[t.category] = (acc[t.category] || 0) + t.amount;
@@ -466,6 +526,7 @@ export default function Admin() {
                 { id: 'orders', icon: ShoppingBag, label: 'Pedidos' },
                 { id: 'finance', icon: Wallet, label: 'Financeiro' },
                 { id: 'payments', icon: CreditCard, label: 'Pagamentos' },
+                { id: 'admins', icon: Users, label: 'Gestores' },
               ].map((item) => (
                 <button
                   key={`nav-desktop-${item.id}`}
@@ -505,7 +566,7 @@ export default function Admin() {
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto w-full scrollbar-none">
+        <main className="flex-1 overflow-y-auto w-full">
            {/* Mobile Header */}
            <header className="lg:hidden flex items-center justify-between p-6 glass-dark border-b border-white/5 sticky top-0 z-50">
               <div className="flex items-center gap-3">
@@ -527,6 +588,7 @@ export default function Admin() {
                 { id: 'orders', label: 'Pedidos' },
                 { id: 'finance', label: 'Financeiro' },
                 { id: 'payments', label: 'Pagos' },
+                { id: 'admins', label: 'Equipe' },
               ].map((tab) => (
                 <button
                   key={`nav-mobile-${tab.id}`}
@@ -588,12 +650,7 @@ export default function Admin() {
 
                     {/* Stats Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-                       {[
-                         { label: 'Vendas Totais', value: 'R$ 12.450', icon: DollarSign, trend: '+12%', color: 'text-primary', delay: 0 },
-                         { label: 'Pedidos do Dia', value: '42', icon: ShoppingBag, trend: '+5%', color: 'text-secondary', delay: 0.1 },
-                         { label: 'Ticket Médio', value: 'R$ 32,40', icon: TrendingUp, trend: '+2%', color: 'text-emerald-400', delay: 0.2 },
-                         { label: 'Novos Clientes', value: '18', icon: Users, trend: '+8%', color: 'text-orange-500', delay: 0.3 },
-                       ].map((stat, i) => (
+                       {dailyStats.map((stat, i) => (
                          <motion.div 
                            key={stat.label}
                            initial={{ opacity: 0, y: 30 }}
@@ -614,7 +671,7 @@ export default function Admin() {
                                     <ArrowUpRight className="w-3 h-3" />
                                     {stat.trend}
                                   </div>
-                                  <span className="opacity-30 text-white font-normal">vs ontem</span>
+                                  <span className="opacity-30 text-white font-normal">tempo real</span>
                                </div>
                             </div>
                             <div className={cn("absolute -bottom-10 -right-10 w-32 h-32 blur-[80px] opacity-10 rounded-full transition-opacity group-hover:opacity-20", stat.color.replace('text', 'bg'))} />
@@ -643,7 +700,7 @@ export default function Admin() {
                           </div>
                           <div className="h-[380px] w-full">
                              <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData}>
+                                <AreaChart data={dynamicChartData}>
                                    <defs>
                                       <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
                                          <stop offset="5%" stopColor="#00f2ff" stopOpacity={0.4}/>
@@ -1163,6 +1220,65 @@ export default function Admin() {
                             </div>
                          </div>
                        )}
+                    </div>
+                  </motion.div>
+                )}
+
+                {activeTab === 'admins' && (
+                  <motion.div 
+                    key="admins"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-12"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                       <div>
+                          <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Gestores</h1>
+                          <p className="text-white/40 text-sm mt-3 font-medium">Gerencie quem tem acesso total ao painel administrativo.</p>
+                       </div>
+                       <button 
+                         onClick={() => {
+                           const uid = prompt("Digite o UID do novo gestor (disponível no perfil do usuário):");
+                           if (uid) {
+                            setNewAdminId(uid);
+                            handleAddAdmin();
+                           }
+                         }}
+                         className="bg-white text-dark px-8 py-4 rounded-[2rem] flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.15em] shadow-xl active:scale-95 transition-all"
+                       >
+                          <PlusCircle className="w-5 h-5" /> Novo Gestor
+                       </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                       {admins.map((admin) => (
+                         <div key={admin.id} className="glass p-8 rounded-[2.5rem] border-white/5 relative overflow-hidden group">
+                            <div className="relative z-10">
+                               <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-primary/10 text-primary mb-4">
+                                  <UserIcon className="w-6 h-6" />
+                               </div>
+                               <p className="text-white/30 text-[10px] font-black uppercase tracking-[0.2em] mb-1">ID do Gestor</p>
+                               <p className="text-sm font-mono text-white/60 mb-4">{admin.id}</p>
+                               <div className="flex items-center gap-2 text-[10px] text-white/20 uppercase font-black tracking-widest">
+                                  <Calendar className="w-3 h-3" /> Adicionado em {admin.addedAt ? new Date(admin.addedAt).toLocaleDateString() : 'N/A'}
+                               </div>
+                               
+                               {admin.id !== profile?.userId && (
+                                 <button 
+                                   onClick={async () => {
+                                     if(confirm("Remover acesso de gestor?")) {
+                                       await deleteDoc(doc(db, 'admins', admin.id));
+                                       fetchAdmins();
+                                     }
+                                   }}
+                                   className="mt-6 w-full py-3 rounded-xl border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 transition-all"
+                                 >
+                                   Remover Acesso
+                                 </button>
+                               )}
+                            </div>
+                         </div>
+                       ))}
                     </div>
                   </motion.div>
                 )}
