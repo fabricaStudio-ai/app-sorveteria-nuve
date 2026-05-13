@@ -24,9 +24,20 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function isValidPromotion(data) {
+      return data.title is string && data.title.size() <= 100 &&
+             data.discount is string && data.discount.size() <= 100 &&
+             data.isActive is bool;
+    }
+
     // -------------------------------------------------------------------------
     // RULES
     // -------------------------------------------------------------------------
+
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidPromotion(request.resource.data);
+    }
 
     match /admins/{adminId} {
       allow read: if isOwner(adminId) || isAdmin();

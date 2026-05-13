@@ -51,7 +51,8 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Volume2
+  Volume2,
+  Sparkles
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -78,13 +79,14 @@ export default function Admin() {
   const queryParams = new URLSearchParams(location.search);
   const initialTab = queryParams.get('tab') as any;
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'finance' | 'payments' | 'admins'>(
-    initialTab && ['overview', 'products', 'orders', 'finance', 'payments', 'admins'].includes(initialTab) 
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'finance' | 'payments' | 'admins' | 'promotions'>(
+    initialTab && ['overview', 'products', 'orders', 'finance', 'payments', 'admins', 'promotions'].includes(initialTab) 
     ? initialTab 
     : 'overview'
   );
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [promotions, setPromotions] = useState<any[]>([]);
   const [admins, setAdmins] = useState<any[]>([]);
   const [showAddAdmin, setShowAddAdmin] = useState(false);
   const [newAdminId, setNewAdminId] = useState('');
@@ -95,6 +97,45 @@ export default function Admin() {
       setAdmins(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (e) {
       handleFirestoreError(e, OperationType.GET, 'admins');
+    }
+  };
+
+  const fetchPromotions = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'promotions'));
+      setPromotions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.GET, 'promotions');
+    }
+  };
+
+  const handleSavePromo = async () => {
+    if (!promoForm.title || !promoForm.discount) return;
+    try {
+      if (editingPromo) {
+        await updateDoc(doc(db, 'promotions', editingPromo.id), promoForm);
+      } else {
+        await addDoc(collection(db, 'promotions'), {
+          ...promoForm,
+          createdAt: new Date().toISOString()
+        });
+      }
+      setShowPromoModal(false);
+      setEditingPromo(null);
+      setPromoForm({ title: '', description: '', discount: '', image: '', expiresAt: '', isActive: true, code: '' });
+      fetchPromotions();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, 'promotions');
+    }
+  };
+
+  const deletePromo = async (id: string) => {
+    if (!confirm("Excluir esta promoção?")) return;
+    try {
+      await deleteDoc(doc(db, 'promotions', id));
+      fetchPromotions();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `promotions/${id}`);
     }
   };
 
@@ -143,7 +184,18 @@ export default function Admin() {
 
   // Product Modal State
   const [showProductModal, setShowProductModal] = useState(false);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [editingPromo, setEditingPromo] = useState<any | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [promoForm, setPromoForm] = useState({
+    title: '',
+    description: '',
+    discount: '',
+    image: '',
+    expiresAt: '',
+    isActive: true,
+    code: ''
+  });
   const [productForm, setProductForm] = useState({
     name: '',
     description: '',
@@ -199,6 +251,7 @@ export default function Admin() {
     fetchTransactions();
     fetchPaymentMethods();
     fetchAdmins();
+    fetchPromotions();
 
     // Sound for notifications
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
@@ -524,6 +577,7 @@ export default function Admin() {
                 { id: 'overview', icon: LayoutDashboard, label: 'Resumo' },
                 { id: 'products', icon: Package, label: 'Produtos' },
                 { id: 'orders', icon: ShoppingBag, label: 'Pedidos' },
+                { id: 'promotions', icon: Sparkles, label: 'Promoções' },
                 { id: 'finance', icon: Wallet, label: 'Financeiro' },
                 { id: 'payments', icon: CreditCard, label: 'Pagamentos' },
                 { id: 'admins', icon: Users, label: 'Gestores' },
@@ -586,6 +640,7 @@ export default function Admin() {
                 { id: 'overview', label: 'Dashboard' },
                 { id: 'products', label: 'Catálogo' },
                 { id: 'orders', label: 'Pedidos' },
+                { id: 'promotions', label: 'Ofertas' },
                 { id: 'finance', label: 'Financeiro' },
                 { id: 'payments', label: 'Pagos' },
                 { id: 'admins', label: 'Equipe' },
@@ -1011,6 +1066,75 @@ export default function Admin() {
                   </motion.div>
                 )}
 
+                {activeTab === 'promotions' && (
+                  <motion.div 
+                    key="promotions"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-12"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                       <div>
+                          <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Ofertas & Cupons</h1>
+                          <p className="text-white/40 text-sm mt-3 font-medium">Cadastre descontos e ofertas sazonais aqui.</p>
+                       </div>
+                       <button 
+                         onClick={() => {
+                           setEditingPromo(null);
+                           setPromoForm({ title: '', description: '', discount: '', image: '', expiresAt: '', isActive: true, code: '' });
+                           setShowPromoModal(true);
+                         }}
+                         className="bg-secondary text-white px-8 py-4 rounded-[2rem] flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.15em] shadow-xl active:scale-95 transition-all"
+                       >
+                          <PlusCircle className="w-5 h-5" /> Nova Promoção
+                       </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                       {promotions.map((promo) => (
+                         <div key={promo.id} className="glass rounded-[3rem] p-8 border-white/5 group relative overflow-hidden">
+                            <div className="flex justify-between items-start mb-6">
+                               <div className="w-14 h-14 bg-secondary/10 rounded-2xl flex items-center justify-center text-secondary">
+                                  <Sparkles className="w-6 h-6" />
+                               </div>
+                               <div className="flex gap-2">
+                                  <button onClick={() => { setEditingPromo(promo); setPromoForm(promo); setShowPromoModal(true); }} className="p-3 glass rounded-xl text-white/20 hover:text-white transition-colors">
+                                     <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => deletePromo(promo.id)} className="p-3 glass rounded-xl text-white/20 hover:text-red-400 transition-colors">
+                                     <Trash2 className="w-4 h-4" />
+                                  </button>
+                               </div>
+                            </div>
+                            <h3 className="text-2xl font-serif italic font-bold mb-2">{promo.title}</h3>
+                            <p className="text-3xl font-black text-secondary mb-4">{promo.discount}</p>
+                            <p className="text-xs text-white/40 leading-relaxed mb-6">{promo.description}</p>
+                            
+                            <div className="flex items-center justify-between p-4 glass-dark rounded-2xl border-white/5 bg-white/5">
+                               <div>
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-white/20">Código</p>
+                                  <p className="text-sm font-mono font-bold text-primary">{promo.code || 'S/ CUPOM'}</p>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-[8px] font-black uppercase tracking-widest text-white/20">Status</p>
+                                  <p className={cn("text-[10px] font-bold", promo.isActive ? "text-emerald-400" : "text-red-400")}>
+                                     {promo.isActive ? 'ATIVA' : 'EXPIRADA'}
+                                  </p>
+                               </div>
+                            </div>
+                         </div>
+                       ))}
+
+                       {promotions.length === 0 && (
+                         <div className="col-span-full py-32 glass rounded-[3rem] border-dashed border-white/10 flex flex-col items-center justify-center gap-6 text-center opacity-30">
+                            <Sparkles className="w-16 h-16" strokeWidth={1} />
+                            <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma promoção ativa</p>
+                         </div>
+                       )}
+                    </div>
+                  </motion.div>
+                )}
+
                 {activeTab === 'finance' && (
                   <motion.div 
                     key="finance"
@@ -1289,6 +1413,34 @@ export default function Admin() {
       </div>
 
       <AnimatePresence>
+        {showPromoModal && (
+          <motion.div key="modal-promo">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPromoModal(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]" />
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md glass-dark p-10 rounded-[3rem] border-white/5 z-[101] shadow-2xl">
+               <h2 className="text-2xl font-serif italic font-bold mb-8">{editingPromo ? 'Editar' : 'Nova'} Promoção</h2>
+               <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Título</label>
+                    <input type="text" value={promoForm.title} onChange={e => setPromoForm({...promoForm, title: e.target.value})} className="w-full glass bg-white/5 p-4 rounded-2xl outline-none text-sm" placeholder="Ex: Verão Nuvê" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Desconto / Oferta</label>
+                    <input type="text" value={promoForm.discount} onChange={e => setPromoForm({...promoForm, discount: e.target.value})} className="w-full glass bg-white/5 p-4 rounded-2xl outline-none text-sm" placeholder="Ex: 20% OFF ou Compre 1 Leve 2" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Cupom (Opcional)</label>
+                    <input type="text" value={promoForm.code} onChange={e => setPromoForm({...promoForm, code: e.target.value.toUpperCase()})} className="w-full glass bg-white/5 p-4 rounded-2xl outline-none text-sm font-mono" placeholder="VERAO20" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Descrição</label>
+                    <textarea value={promoForm.description} onChange={e => setPromoForm({...promoForm, description: e.target.value})} className="w-full glass bg-white/5 p-4 rounded-2xl outline-none text-sm h-24" placeholder="Detalhes da oferta..." />
+                  </div>
+                  <button onClick={handleSavePromo} className="w-full bg-secondary text-white py-5 rounded-[2rem] font-black uppercase tracking-widest shadow-xl mt-4">Salvar Promoção</button>
+               </div>
+            </motion.div>
+          </motion.div>
+        )}
+
         {showAddTransaction && (
           <motion.div key="modal-add-transaction">
             <motion.div 

@@ -82,6 +82,22 @@
         "addedAt": { "type": "string", "format": "date-time" },
         "addedBy": { "type": "string" }
       }
+    },
+    "Promotion": {
+      "title": "Promotion",
+      "description": "Special offers and discounts",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "discount": { "type": "string" },
+        "image": { "type": "string" },
+        "expiresAt": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "code": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "discount", "isActive"]
     }
   },
   "firestore": {
@@ -108,6 +124,10 @@
     "admins": {
       "schema": "Admin",
       "description": "Whitelisted administrator UIDs"
+    },
+    "promotions": {
+      "schema": "Promotion",
+      "description": "Active promotional offers and codes"
     }
   }
 }

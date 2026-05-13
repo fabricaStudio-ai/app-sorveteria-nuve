@@ -30,11 +30,6 @@ export default function Profile() {
     );
   }
 
-  const handleRoleSwitch = () => {
-    setUserRole(null); // Reset role selection to trigger choice screen
-    navigate('/');
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -80,40 +75,22 @@ export default function Profile() {
 
         {/* Settings List */}
         <div className="space-y-3">
-           {profile?.isAdmin && (
-             <>
-               <Link 
-                to="/admin" 
-                className="w-full glass rounded-2xl p-5 flex items-center justify-between group hover:border-primary/30 transition-all"
-               >
-                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-primary/10 rounded-xl text-primary">
-                       <ShieldCheck className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="block font-bold text-sm tracking-tight">Painel Administrativo</span>
-                      <span className="text-[10px] text-white/30 uppercase font-black tracking-widest">Acesso Gestor</span>
-                    </div>
-                 </div>
-                 <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-primary transition-colors" />
-               </Link>
-
-               <button 
-                onClick={handleRoleSwitch}
-                className="w-full glass rounded-2xl p-5 flex items-center justify-between group hover:border-secondary/30 transition-all"
-               >
-                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-secondary/10 rounded-xl text-secondary">
-                       <Layers className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="block font-bold text-sm tracking-tight">Alterar Modo de Visualização</span>
-                      <span className="text-[10px] text-white/30 uppercase font-black tracking-widest">Trocar entre Loja e Admin</span>
-                    </div>
-                 </div>
-                 <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-secondary transition-colors" />
-               </button>
-             </>
+           {userRole === 'admin' && (
+             <Link 
+              to="/admin" 
+              className="w-full glass rounded-2xl p-5 flex items-center justify-between group hover:border-primary/30 transition-all"
+             >
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-primary/10 rounded-xl text-primary">
+                     <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="block font-bold text-sm tracking-tight">Painel Administrativo</span>
+                    <span className="text-[10px] text-white/30 uppercase font-black tracking-widest">Acesso Gestor</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-primary transition-colors" />
+             </Link>
            )}
 
            <button className="w-full glass rounded-2xl p-5 flex items-center justify-between group hover:border-white/20 transition-all">
