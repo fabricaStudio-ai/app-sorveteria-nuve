@@ -63,6 +63,10 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
   const maxFlavors = Number(product.maxFlavors) || (['sorvetes', 'milkshakes'].includes(product.category) ? 2 : 0);
   const showToppings = ['sorvetes', 'acai', 'milkshakes'].includes(product.category);
 
+  const isFlavorSelectionRequired = showFlavors && maxFlavors > 0;
+  const hasFlavorsSelected = selectedFlavors.length > 0;
+  const canContinue = !isFlavorSelectionRequired || hasFlavorsSelected;
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -117,6 +121,9 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-white/40 text-[10px] uppercase font-bold tracking-widest">Escolha seus Sabores</h3>
+                    {isFlavorSelectionRequired && !hasFlavorsSelected && (
+                      <span className="text-[9px] text-red-400 font-bold animate-pulse">SELECIONE PELO MENOS 1</span>
+                    )}
                     <span className="text-[10px] text-primary/50 font-bold">{selectedFlavors.length}/{maxFlavors}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -195,15 +202,17 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
             <div className="p-8 glass-dark border-t border-white/5 flex flex-col gap-3">
                <button
                  onClick={handleAdd}
-                 className="w-full bg-white text-dark py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(255,255,255,0.1)] flex items-center justify-center gap-3 active:scale-95 transition-all"
+                 disabled={!canContinue}
+                 className="w-full bg-white text-dark py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(255,255,255,0.1)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-20 disabled:grayscale disabled:scale-100"
                >
-                 Adicionar (R$ ${((product.price || 0) * quantity).toFixed(2)})
+                 {canContinue ? `Adicionar (R$ ${((product.price || 0) * quantity).toFixed(2)})` : 'Selecione o sabor primeiro'}
                </button>
                
                {!isAdmin ? (
                  <button
                    onClick={handleWhatsAppOrder}
-                   className="w-full glass border-primary/20 text-primary py-5 rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all"
+                   disabled={!canContinue}
+                   className="w-full glass border-primary/20 text-primary py-5 rounded-2xl font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-20 disabled:grayscale disabled:scale-100"
                  >
                    <MessageCircle className="w-5 h-5" /> Pedir no WhatsApp
                  </button>

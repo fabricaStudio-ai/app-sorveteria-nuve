@@ -57,4 +57,6 @@ export interface Order {
   customerPhone?: string;
   createdAt: string;
   orderNumber?: string;
+  paymentApproved?: boolean;
+  paymentStatus?: 'pending' | 'approved' | 'rejected';
 }

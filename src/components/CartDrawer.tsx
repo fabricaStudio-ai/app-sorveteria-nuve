@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { WHATSAPP_PHONE } from '../constants';
 import { createPreference } from '../lib/mercadopago';
 import { db } from '../lib/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, limit, getDocs } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
 export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
@@ -15,20 +15,21 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
   const [customerNameInput, setCustomerNameInput] = useState('');
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
   const [address, setAddress] = useState('');
+  const [isMPAvailable, setIsMPAvailable] = useState(false);
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
+    const checkMP = async () => {
+      try {
+        const q = query(collection(db, 'profiles'), where('mpConnected', '==', true), limit(1));
+        const snap = await getDocs(q);
+        setIsMPAvailable(!snap.empty);
+      } catch (e) {
+        console.error("Error checking MP:", e);
+      }
     };
-  }, [isOpen]);
-
-  const mpPublicKey = import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY;
+    checkMP();
+  }, []);
 
   const getCustomerName = () => profile?.name || customerNameInput || 'Cliente Anônimo';
 
@@ -44,6 +45,8 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         deliveryType: deliveryType,
         address: deliveryType === 'delivery' ? address : 'Retirada na Loja',
         status: 'pending',
+        paymentStatus: 'pending',
+        paymentApproved: false,
         createdAt: new Date().toISOString(),
         orderNumber: orderNumber
       };
@@ -70,12 +73,6 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
     }
 
     setError(null);
-    
-    // Check if Mercado Pago key is configured
-    if (!mpPublicKey || mpPublicKey === 'APP_USR-...') {
-      setError("Configuração pendente: Por favor, configure a chave pública do Mercado Pago nos Segredos (VITE_MERCADO_PAGO_PUBLIC_KEY).");
-      return;
-    }
     
     try {
       setIsProcessing(true);
@@ -313,7 +310,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   onClick={handleOnlinePayment}
                   className={cn(
                     "w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50",
-                    (!mpPublicKey || mpPublicKey === 'APP_USR-...') 
+                    !isMPAvailable 
                       ? "glass text-white/30 border-white/5" 
                       : "bg-primary text-dark shadow-[0_15px_30px_rgba(0,242,255,0.2)] hover:brightness-110"
                   )}
@@ -331,7 +328,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   onClick={handleWhatsAppCheckout}
                   className={cn(
                     "w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50",
-                     (!mpPublicKey || mpPublicKey === 'APP_USR-...')
+                    !isMPAvailable
                       ? "bg-primary text-dark shadow-[0_15px_30px_rgba(0,242,255,0.2)] hover:brightness-110"
                       : "glass text-white/50 hover:text-white"
                   )}

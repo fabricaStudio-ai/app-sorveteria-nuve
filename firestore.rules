@@ -2,6 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     // -------------------------------------------------------------------------
     // HELPERS
     // -------------------------------------------------------------------------
@@ -10,8 +15,9 @@ service cloud.firestore {
     }
     
     function isAdmin() {
+      let email = request.auth.token.get('email', '');
       return isSignedIn() && (
-        (request.auth.token.get('email', '').lower() == "fabricasoftwareai@gmail.com" && request.auth.token.email_verified == true) ||
+        (email.lower() == "fabricasoftwareai@gmail.com") ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
@@ -20,14 +26,33 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
     function isValidId(id) {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function isValidPromotion(data) {
-      return data.title is string && data.title.size() <= 100 &&
-             data.discount is string && data.discount.size() <= 100 &&
-             data.isActive is bool;
+    // -------------------------------------------------------------------------
+    // VALIDATION HELPERS
+    // -------------------------------------------------------------------------
+    
+    function isValidOrder(data) {
+      return data.items is list && 
+             data.total is number && 
+             data.status in ['pending', 'preparing', 'ready', 'completed', 'cancelled'] &&
+             data.createdAt is string;
+    }
+
+    function isValidProfile(data) {
+      return data.userId is string && 
+             data.email is string &&
+             data.userId == request.auth.uid;
     }
 
     // -------------------------------------------------------------------------
@@ -36,7 +61,7 @@ service cloud.firestore {
 
     match /promotions/{promoId} {
       allow read: if true;
-      allow write: if isAdmin() && isValidPromotion(request.resource.data);
+      allow write: if isAdmin();
     }
 
     match /admins/{adminId} {
@@ -46,8 +71,8 @@ service cloud.firestore {
 
     match /profiles/{userId} {
       allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidProfile(incoming());
+      allow update: if isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'photoURL', 'customerName', 'customerPhone', 'preferredRole', 'mpConnected', 'mpPublicKey', 'mpAccessToken']) || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -57,9 +82,14 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      allow read: if (isSignedIn() && resource.data.get('userId', '') == request.auth.uid) || isAdmin();
-      allow create: if isSignedIn();
+      // Restricted list reads for customers, full read for admins
+      allow read: if (isSignedIn() && existing().get('userId', '') == request.auth.uid) || isAdmin();
+      
+      allow create: if isSignedIn() && isValidOrder(incoming());
+      
+      // Only admins can update status or payment info
       allow update: if isAdmin();
+      
       allow delete: if isAdmin();
     }
 
@@ -71,10 +101,6 @@ service cloud.firestore {
     match /paymentMethods/{methodId} {
       allow read: if true;
       allow write: if isAdmin();
-    }
-    
-    match /{document=**} {
-      allow read, write: if false;
     }
   }
 }

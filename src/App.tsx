@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { ShoppingBag } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
@@ -16,6 +16,7 @@ import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import Auth from './pages/Auth';
 import RoleSelection from './pages/RoleSelection';
+import Settings from './pages/Settings';
 
 // Empty pages for routing demonstration
 const Promos = () => <div className="p-8 text-center text-white/40">Promoções em breve...</div>;
@@ -89,21 +90,28 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] flex justify-center selection:bg-primary/30">
+    <div className={cn(
+      "min-h-screen bg-[#050505] flex justify-center selection:bg-primary/30",
+      userRole === 'admin' && location.pathname === '/admin' ? "block" : "flex"
+    )}>
       <AnimatePresence mode="wait">
         {isSplashVisible && <Splash key="splash" />}
       </AnimatePresence>
 
-      <main className="relative min-h-screen w-full max-w-md bg-dark shadow-2xl pb-32">
+      <main className={cn(
+        "relative min-h-screen w-full bg-dark shadow-2xl pb-32",
+        userRole === 'admin' && location.pathname === '/admin' ? "max-w-none pb-0" : "max-w-md"
+      )}>
         <AnimatePresence mode="wait">
           <div key={location.pathname}>
             <Routes location={location}>
-              <Route path="/" element={userRole === 'admin' ? <Admin /> : <Home />} />
+              <Route path="/" element={<Home />} />
               <Route path="/menu" element={<Menu />} />
               <Route path="/promos" element={<Promos />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/admin" element={<Admin />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/admin" element={userRole === 'admin' ? <Admin /> : <Navigate to="/" />} />
             </Routes>
           </div>
         </AnimatePresence>
@@ -120,7 +128,7 @@ function AppContent() {
       <WhatsAppFAB />
       <PWAInstallPrompt />
 
-      {!isSplashVisible && (
+      {!isSplashVisible && location.pathname !== '/admin' && (
         <div className="fixed bottom-0 left-0 right-0 z-[80] pointer-events-none">
           <div className="max-w-md mx-auto pointer-events-auto">
             <BottomNav onOpenCart={() => setIsCartOpen(true)} />

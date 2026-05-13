@@ -103,7 +103,10 @@ export default function Profile() {
               <ChevronRight className="w-5 h-5 text-white/20" />
            </button>
 
-           <button className="w-full glass rounded-2xl p-5 flex items-center justify-between group hover:border-white/20 transition-all">
+           <button 
+             onClick={() => navigate('/settings')}
+             className="w-full glass rounded-2xl p-5 flex items-center justify-between group hover:border-white/20 transition-all"
+           >
               <div className="flex items-center gap-4 text-white/60">
                  <div className="p-3 bg-white/5 rounded-xl">
                     <Settings className="w-5 h-5" />

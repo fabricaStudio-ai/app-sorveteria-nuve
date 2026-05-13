@@ -15,7 +15,8 @@ import {
   setDoc,
   limit
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Product, Transaction, PaymentMethod, Order } from '../types';
 import { PRODUCTS } from '../constants';
 import { useApp } from '../context/AppContext';
@@ -73,7 +74,7 @@ import { cn } from '../lib/utils';
 const COLORS = ['#00f2ff', '#7000ff', '#ff00d4', '#ff8c00', '#00ff8c'];
 
 export default function Admin() {
-  const { profile, loading: authLoading } = useApp();
+  const { user, profile, loading: authLoading, setUserRole } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
@@ -209,6 +210,7 @@ export default function Admin() {
     availableFlavors: '',
     maxFlavors: '0'
   });
+  const [isUploading, setIsUploading] = useState(false);
 
   const modalProcessedRef = useRef<string | null>(null);
 
@@ -265,20 +267,21 @@ export default function Admin() {
 
     const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
       const ordersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-      setOrders(ordersData);
+      setOrders(ordersData || []);
 
       // Check for new orders to trigger notification
       if (ordersData.length > prevOrdersCount.current && prevOrdersCount.current !== 0) {
         const latestOrder = ordersData[0];
         // Only notify if it's a pending order AND it's not from the admin
-        if (latestOrder.status === 'pending' && latestOrder.customerEmail !== 'fabricasoftwareai@gmail.com') {
+        if (latestOrder && latestOrder.status === 'pending' && latestOrder.customerEmail !== 'fabricasoftwareai@gmail.com') {
           setNewOrderNotification(latestOrder);
           audioRef.current?.play().catch(e => console.log('Audio play blocked'));
         }
       }
       prevOrdersCount.current = ordersData.length;
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'orders');
+      console.error("Orders Listener Error:", error);
+      // We don't throw here to avoid crashing the whole admin panel
     });
 
     return () => unsubscribe();
@@ -400,14 +403,45 @@ export default function Admin() {
     }
   };
 
-  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+  const uploadToFirebase = async (file: File, path: string): Promise<string> => {
+    if (file.size > 5 * 1024 * 1024) throw new Error("Imagem muito grande (máx 5MB)");
+    
+    const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    const storageRef = ref(storage, `${path}/${fileName}`);
+    
+    const snapshot = await uploadBytes(storageRef, file);
+    return await getDownloadURL(snapshot.ref);
+  };
+
+  const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProductForm(prev => ({ ...prev, image: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const downloadURL = await uploadToFirebase(file, 'products');
+      setProductForm(prev => ({ ...prev, image: downloadURL }));
+    } catch (error: any) {
+      console.error("Error uploading product image:", error);
+      alert(error.message || "Erro ao enviar imagem.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handlePromoImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const downloadURL = await uploadToFirebase(file, 'promotions');
+      setPromoForm(prev => ({ ...prev, image: downloadURL }));
+    } catch (error: any) {
+      console.error("Error uploading promo image:", error);
+      alert(error.message || "Erro ao enviar imagem.");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -458,30 +492,30 @@ export default function Admin() {
     }
   };
 
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((acc, t) => acc + t.amount, 0);
-  const totalExpense = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => acc + t.amount, 0);
+  const totalIncome = (transactions || [])
+    .filter(t => t && t.type === 'income')
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
+  const totalExpense = (transactions || [])
+    .filter(t => t && t.type === 'expense')
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
   const profit = totalIncome - totalExpense;
 
   // New Dynamic Stats for Overview
   const today = new Date().toISOString().split('T')[0];
-  const ordersToday = orders.filter(o => o.createdAt.startsWith(today));
-  const incomeToday = transactions
-    .filter(t => t.type === 'income' && t.date.startsWith(today))
-    .reduce((acc, t) => acc + t.amount, 0);
+  const ordersToday = (orders || []).filter(o => o && o.createdAt && typeof o.createdAt === 'string' && o.createdAt.startsWith(today));
+  const incomeToday = (transactions || [])
+    .filter(t => t && t.type === 'income' && t.date && typeof t.date === 'string' && t.date.startsWith(today))
+    .reduce((acc, t) => acc + (t.amount || 0), 0);
   
-  const totalSalesValue = orders
-    .filter(o => o.status !== 'cancelled')
-    .reduce((acc, o) => acc + o.total, 0);
+  const totalSalesValue = (orders || [])
+    .filter(o => o && o.status !== 'cancelled')
+    .reduce((acc, o) => acc + (o.total || 0), 0);
   
   const dailyStats = [
-    { label: 'Vendas Totais', value: `R$ ${totalSalesValue.toLocaleString('pt-BR')}`, icon: DollarSign, trend: '+--%', color: 'text-primary', delay: 0 },
-    { label: 'Pedidos do Dia', value: ordersToday.length.toString(), icon: ShoppingBag, trend: '+--%', color: 'text-secondary', delay: 0.1 },
-    { label: 'Saldo Hoje', value: `R$ ${incomeToday.toLocaleString('pt-BR')}`, icon: Wallet, trend: '+--%', color: 'text-emerald-400', delay: 0.2 },
-    { label: 'Total Produtos', value: products.length.toString(), icon: Package, trend: '--', color: 'text-orange-500', delay: 0.3 },
+    { label: 'Vendas Totais', value: `R$ ${(totalSalesValue || 0).toLocaleString('pt-BR')}`, icon: DollarSign, trend: '+--%', color: 'text-primary', delay: 0 },
+    { label: 'Pedidos do Dia', value: (ordersToday?.length || 0).toString(), icon: ShoppingBag, trend: '+--%', color: 'text-secondary', delay: 0.1 },
+    { label: 'Saldo Hoje', value: `R$ ${(incomeToday || 0).toLocaleString('pt-BR')}`, icon: Wallet, trend: '+--%', color: 'text-emerald-400', delay: 0.2 },
+    { label: 'Total Produtos', value: (products?.length || 0).toString(), icon: Package, trend: '--', color: 'text-orange-500', delay: 0.3 },
   ];
 
   // Dynamic Chart Data from last 7 days
@@ -493,11 +527,11 @@ export default function Admin() {
 
   const dynamicChartData = last7Days.map(date => {
     const dayName = new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short' });
-    const dayOrders = orders.filter(o => o.createdAt.startsWith(date));
-    const daySales = dayOrders.reduce((acc, o) => acc + o.total, 0);
-    const dayExpenses = transactions
-      .filter(t => t.type === 'expense' && t.date.startsWith(date))
-      .reduce((acc, t) => acc + t.amount, 0);
+    const dayOrders = (orders || []).filter(o => o && o.createdAt && typeof o.createdAt === 'string' && o.createdAt.startsWith(date));
+    const daySales = dayOrders.reduce((acc, o) => acc + (o.total || 0), 0);
+    const dayExpenses = (transactions || [])
+      .filter(t => t && t.type === 'expense' && t.date && typeof t.date === 'string' && t.date.startsWith(date))
+      .reduce((acc, t) => acc + (t.amount || 0), 0);
     
     return {
       name: dayName.charAt(0).toUpperCase() + dayName.slice(1),
@@ -507,9 +541,9 @@ export default function Admin() {
     };
   });
 
-  const financeCategories = transactions.reduce((acc: any, t) => {
-    if (t.type === 'expense') {
-      acc[t.category] = (acc[t.category] || 0) + t.amount;
+  const financeCategories = (transactions || []).reduce((acc: any, t) => {
+    if (t && t.type === 'expense' && t.category) {
+      acc[t.category] = (acc[t.category] || 0) + (t.amount || 0);
     }
     return acc;
   }, {});
@@ -557,29 +591,89 @@ export default function Admin() {
     );
   }
   
-  if (!profile?.isAdmin) return <Navigate to="/" />;
+  if (!profile?.isAdmin) {
+    const isBootstrapEmail = user?.email?.toLowerCase().trim() === 'fabricasoftwareai@gmail.com';
+    
+    return (
+      <div className="min-h-screen bg-dark flex flex-col items-center justify-center p-6 text-center gap-6">
+        <div className="w-20 h-20 bg-red-500/10 rounded-[2.5rem] flex items-center justify-center border border-red-500/20">
+          <AlertCircle className="w-10 h-10 text-red-500" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-serif italic font-bold">Acesso Negado</h1>
+          <p className="text-white/40 text-sm max-w-xs mx-auto">
+            Sua conta (<span className="text-white/60 font-mono text-[10px]">{user?.email}</span>) não tem permissões de gestor na Nuvê.
+          </p>
+          {isBootstrapEmail && (
+            <p className="text-primary/60 text-[9px] uppercase font-black tracking-widest mt-4">
+              Você é um administrador mestre. Clique abaixo para sincronizar seu acesso.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          {isBootstrapEmail ? (
+            <button 
+              onClick={() => window.location.reload()} 
+              className="w-full bg-primary text-dark py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" /> Sincronizar Agora
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <button 
+                onClick={() => setUserRole('customer')} 
+                className="w-full bg-secondary text-dark py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all"
+              >
+                Entrar como Cliente
+              </button>
+              <button 
+                onClick={() => navigate('/')} 
+                className="w-full glass py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-white/40"
+              >
+                Voltar para o Início
+              </button>
+            </div>
+          )}
+          <button 
+            onClick={() => {
+              import('../lib/firebase').then(m => m.logout());
+              navigate('/');
+            }} 
+            className="w-full bg-red-500/10 text-red-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+          >
+            Sair da Conta
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-primary/30">
-      <div className="flex flex-col h-screen overflow-hidden">
+      <div className="flex flex-col min-h-screen">
         
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto w-full">
+        <main className="flex-1 w-full">
            {/* Header */}
            <header className="flex items-center justify-between p-6 glass-dark border-b border-white/5 sticky top-0 z-50">
               <div className="flex items-center gap-3">
+                <button onClick={() => navigate('/')} className="p-2 glass rounded-xl">
+                  <Plus className="w-5 h-5 rotate-45" />
+                </button>
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                   <ChefHat className="w-5 h-5 text-dark" />
                 </div>
                 <h2 className="text-xl font-serif italic font-bold">Nuvê Admin</h2>
               </div>
-              <button onClick={fetchProducts} className="p-2 glass rounded-xl active:scale-95 transition-transform">
-                <RefreshCw className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={fetchProducts} className="p-2 glass rounded-xl active:scale-95 transition-transform">
+                  <RefreshCw className="w-5 h-5" />
+                </button>
+              </div>
            </header>
 
            {/* Navigation Tabs */}
-           <div className="flex gap-2 px-6 py-4 overflow-x-auto scrollbar-none border-b border-white/5 bg-dark sticky top-[77px] z-40 backdrop-blur-xl">
+           <div className="flex gap-2 px-6 py-4 overflow-x-auto scrollbar-none border-b border-white/5 bg-dark/80 sticky top-[77px] z-40 backdrop-blur-xl">
               {[
                 { id: 'overview', label: 'Dashboard' },
                 { id: 'products', label: 'Catálogo' },
@@ -888,10 +982,10 @@ export default function Admin() {
                           <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter flex items-center gap-4">
                             Cozinha <ChefHat className="w-8 h-8 text-secondary" />
                           </h1>
-                          <p className="text-white/40 text-sm mt-3 font-medium">Fila de preparação por ordem de chegada.</p>
+                          <p className="text-white/40 text-sm mt-3 font-medium">Pedidos com pagamento aprovado.</p>
                        </div>
                        <div className="flex gap-4 p-1 glass rounded-2xl border-white/5 overflow-x-auto scrollbar-none">
-                          {['Todos', 'Pendentes', 'Preparando', 'Prontos'].map((filter) => (
+                          {['Aprovação', 'Pendentes', 'Preparando', 'Prontos'].map((filter) => (
                             <button 
                               key={filter} 
                               onClick={() => setOrderFilter(filter as any)}
@@ -905,11 +999,13 @@ export default function Admin() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                        {orders.filter(o => {
-                         if (orderFilter === 'Todos') return o.status !== 'completed' && o.status !== 'cancelled';
+                         if (orderFilter === 'Aprovação') return !o.paymentApproved;
+                         if (!o.paymentApproved) return false; // Hide unapproved from other tabs
+                         
                          if (orderFilter === 'Pendentes') return o.status === 'pending';
                          if (orderFilter === 'Preparando') return o.status === 'preparing';
                          if (orderFilter === 'Prontos') return o.status === 'ready';
-                         return true;
+                         return o.status !== 'completed' && o.status !== 'cancelled';
                        }).map((order, idx) => (
                          <motion.div 
                            key={order.id}
@@ -947,7 +1043,7 @@ export default function Admin() {
                                   <Users className="w-4 h-4 text-white/30" /> {order.customerName || 'Cliente Anônimo'}
                                </h3>
                                <div className="space-y-4">
-                                  {order.items.map((item, i) => (
+                                  {(order.items || []).map((item, i) => (
                                     <div key={i} className="flex gap-4">
                                        <div className="w-10 h-10 rounded-xl overflow-hidden glass border-white/10 flex-shrink-0">
                                           <img src={item.image} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
@@ -961,11 +1057,24 @@ export default function Admin() {
                                        </div>
                                     </div>
                                   ))}
-                               </div>
                             </div>
+                          </div>
 
-                            <div className="grid grid-cols-2 gap-3 relative z-10">
-                               {order.status === 'pending' && (
+                          <div className="grid grid-cols-2 gap-3 relative z-10">
+                               {!order.paymentApproved && (
+                                 <button 
+                                   onClick={() => {
+                                      if(confirm("Confirmar que o pagamento foi recebido?")) {
+                                        updateDoc(doc(db, 'orders', order.id), { paymentApproved: true, paymentStatus: 'approved' });
+                                      }
+                                   }}
+                                   className="col-span-2 bg-emerald-500 text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
+                                 >
+                                    <Check className="w-4 h-4" /> Aprovar Pagamento
+                                 </button>
+                               )}
+
+                               {order.paymentApproved && order.status === 'pending' && (
                                  <button 
                                    onClick={() => updateOrderStatus(order.id, 'preparing')}
                                    className="col-span-2 bg-primary text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
@@ -973,7 +1082,7 @@ export default function Admin() {
                                     <ChefHat className="w-4 h-4" /> Começar Preparo
                                  </button>
                                )}
-                               {order.status === 'preparing' && (
+                               {order.paymentApproved && order.status === 'preparing' && (
                                  <button 
                                    onClick={() => updateOrderStatus(order.id, 'ready')}
                                    className="col-span-2 bg-secondary text-white py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
@@ -981,7 +1090,7 @@ export default function Admin() {
                                     <Bell className="w-4 h-4" /> Marcar como Pronto
                                  </button>
                                )}
-                               {order.status === 'ready' && (
+                               {order.paymentApproved && order.status === 'ready' && (
                                  <button 
                                    onClick={() => updateOrderStatus(order.id, 'completed')}
                                    className="col-span-2 bg-emerald-500 text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
@@ -995,7 +1104,7 @@ export default function Admin() {
                               "absolute -bottom-20 -right-20 w-48 h-48 blur-[80px] opacity-10 rounded-full",
                               order.status === 'preparing' ? "bg-primary" : "bg-white"
                             )} />
-                         </motion.div>
+                       </motion.div>
                        ))}
 
                        {orders.length === 0 && (
@@ -1361,7 +1470,12 @@ export default function Admin() {
           <motion.div key="modal-promo">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPromoModal(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]" />
             <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md glass-dark p-10 rounded-[3rem] border-white/5 z-[101] shadow-2xl">
-               <h2 className="text-2xl font-serif italic font-bold mb-8">{editingPromo ? 'Editar' : 'Nova'} Promoção</h2>
+               <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-2xl font-serif italic font-bold">{editingPromo ? 'Editar' : 'Nova'} Promoção</h2>
+                  <button onClick={() => setShowPromoModal(false)} className="p-2 glass rounded-xl">
+                    <Plus className="w-5 h-5 rotate-45" />
+                  </button>
+               </div>
                <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Título</label>
@@ -1374,6 +1488,35 @@ export default function Admin() {
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Cupom (Opcional)</label>
                     <input type="text" value={promoForm.code} onChange={e => setPromoForm({...promoForm, code: e.target.value.toUpperCase()})} className="w-full glass bg-white/5 p-4 rounded-2xl outline-none text-sm font-mono" placeholder="VERAO20" />
+                  </div>
+                  <div className="space-y-1">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Banner da Promoção (Opcional)</label>
+                     <div className="flex gap-4 items-center p-4 glass-dark rounded-2xl bg-white/5 border border-white/5">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden glass border-white/10 flex-shrink-0 bg-white/5 relative">
+                           {promoForm.image ? (
+                              <img src={promoForm.image} className="w-full h-full object-cover" alt="" />
+                           ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white/10 italic text-[10px]"><Plus className="w-4 h-4 opacity-20" /></div>
+                           )}
+                           {isUploading && (
+                             <div className="absolute inset-0 bg-dark/60 flex items-center justify-center">
+                               <RefreshCw className="w-4 h-4 text-primary animate-spin" />
+                             </div>
+                           )}
+                        </div>
+                        <div className="flex-1 relative h-12">
+                           <input 
+                             type="file" 
+                             accept="image/*"
+                             onChange={handlePromoImageUpload}
+                             disabled={isUploading}
+                             className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full"
+                           />
+                           <div className="absolute inset-0 glass border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">
+                              {isUploading ? 'Enviando...' : 'Carregar Banner'}
+                           </div>
+                        </div>
+                     </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Descrição</label>
@@ -1400,7 +1543,12 @@ export default function Admin() {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md glass-dark p-10 rounded-[3rem] border-white/5 z-[101] shadow-2xl"
             >
-               <h2 className="text-2xl font-serif italic font-bold mb-8">Nova Transação</h2>
+               <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-2xl font-serif italic font-bold">Nova Transação</h2>
+                  <button onClick={() => setShowAddTransaction(false)} className="p-2 glass rounded-xl">
+                    <Plus className="w-5 h-5 rotate-45" />
+                  </button>
+               </div>
                
                <div className="space-y-6">
                   <div className="flex p-1.5 glass rounded-2xl bg-white/5">
@@ -1581,35 +1729,60 @@ export default function Admin() {
                       />
                    </div>
 
-                  <div className="space-y-2 col-span-full">
+                   <div className="space-y-2 col-span-full">
                      <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-4">Imagem do Produto</label>
-                     <div className="flex flex-col sm:flex-row gap-4 items-center">
-                        <div className="w-24 h-24 rounded-2xl overflow-hidden glass border-white/10 flex-shrink-0 bg-white/5">
+                     <div className="flex flex-col sm:flex-row gap-6 items-center">
+                        <div className="w-32 h-32 rounded-3xl overflow-hidden glass border-white/10 flex-shrink-0 bg-white/5 relative group">
                            {productForm.image ? (
-                              <img src={productForm.image} className="w-full h-full object-cover" alt="Preview" />
+                              <>
+                                <img src={productForm.image} className="w-full h-full object-cover" alt="Preview" />
+                                <div className="absolute inset-x-0 bottom-0 bg-dark/80 backdrop-blur-sm py-2 text-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button 
+                                    onClick={() => setProductForm(prev => ({ ...prev, image: '' }))}
+                                    className="text-[8px] font-black uppercase tracking-widest text-red-400"
+                                  >
+                                    Remover
+                                  </button>
+                                </div>
+                              </>
                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-white/10 italic text-[8px] uppercase">Sem Foto</div>
+                              <div className="w-full h-full flex flex-col items-center justify-center text-white/10 italic gap-2">
+                                <Plus className="w-6 h-6" />
+                                <span className="text-[8px] uppercase font-black tracking-widest text-white/20">Sem Foto</span>
+                              </div>
+                           )}
+                           
+                           {isUploading && (
+                             <div className="absolute inset-0 bg-dark/60 backdrop-blur-[2px] flex items-center justify-center">
+                               <RefreshCw className="w-6 h-6 text-primary animate-spin" />
+                             </div>
                            )}
                         </div>
-                        <div className="flex-1 w-full space-y-3">
-                           <input 
-                            type="text" 
-                            placeholder="URL da Imagem (opcional se enviar arquivo)"
-                            value={productForm.image}
-                            onChange={(e) => setProductForm(prev => ({ ...prev, image: e.target.value }))}
-                            className="w-full glass bg-white/5 p-4 rounded-2xl border-white/5 outline-none text-sm font-bold placeholder:text-white/10"
-                           />
-                           <div className="relative h-12">
+                        <div className="flex-1 w-full space-y-4">
+                           <div className="relative h-14 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center group hover:border-primary/50 transition-all cursor-pointer">
                               <input 
                                 type="file" 
                                 accept="image/*"
                                 onChange={handleImageUpload}
-                                className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full"
+                                disabled={isUploading}
+                                className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full disabled:cursor-wait"
                               />
-                              <div className="absolute inset-0 glass border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">
-                                 <Plus className="w-3 h-3" /> Selecionar Foto
+                              <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 group-hover:text-primary transition-colors">
+                                 {isUploading ? (
+                                   <>Enviando para Nuvem...</>
+                                 ) : (
+                                   <><PlusCircle className="w-4 h-4" /> Selecionar do Celular</>
+                                 )}
                               </div>
                            </div>
+                           <p className="text-[9px] text-white/20 uppercase font-bold tracking-widest ml-2">Ou cole uma URL abaixo:</p>
+                           <input 
+                             type="text" 
+                             placeholder="Ex: https://..."
+                             value={productForm.image}
+                             onChange={(e) => setProductForm(prev => ({ ...prev, image: e.target.value }))}
+                             className="w-full glass bg-white/5 px-5 py-4 rounded-2xl border-white/5 outline-none text-xs font-bold placeholder:text-white/10 focus:border-primary/30 transition-all"
+                           />
                         </div>
                      </div>
                   </div>

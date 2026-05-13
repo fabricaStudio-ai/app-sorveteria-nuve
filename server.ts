@@ -3,12 +3,19 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import dotenv from "dotenv";
+import firebaseConfig from './firebase-applet-config.json';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Initialize Firebase for server-side lookup
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp, (firebaseConfig as any).firestoreDatabaseId);
 
 async function startServer() {
   const app = express();
@@ -31,10 +38,25 @@ async function startServer() {
     try {
       const { items, success_url, failure_url, pending_url } = req.body;
       
-      const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+      // Look for a manager with Mercado Pago credentials
+      let accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+      
+      if (!accessToken || accessToken === 'YOUR_ACCESS_TOKEN') {
+        const profilesRef = collection(db, "profiles");
+        const q = query(profilesRef, where("mpConnected", "==", true), limit(1));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const profileData = querySnapshot.docs[0].data();
+          accessToken = profileData.mpAccessToken;
+          console.log("Using Mercado Pago credentials from manager profile:", querySnapshot.docs[0].id);
+        }
+      }
+
       if (!accessToken) {
-        console.error("Mercado Pago access token missing in environment");
-        return res.status(500).json({ error: "Mercado Pago access token not configured in server environment" });
+        return res.status(400).json({ 
+          error: "Pagamento indisponível: O gestor ainda não configurou as credenciais do Mercado Pago." 
+        });
       }
 
       const client = new MercadoPagoConfig({ accessToken });
@@ -68,7 +90,7 @@ async function startServer() {
     } catch (error: any) {
       console.error("CRITICAL MERCADO PAGO ERROR:", error);
       res.status(500).json({ 
-        error: error.message,
+        error: error.message || "Erro interno ao processar o pagamento.",
         code: error.status,
       });
     }

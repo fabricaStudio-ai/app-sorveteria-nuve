@@ -13,14 +13,23 @@ export default function BottomNav({ onOpenCart }: { onOpenCart: () => void }) {
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   useEffect(() => {
-    if (userRole !== 'admin') return;
+    // Only listen for new orders if the user is truly an admin
+    if (userRole !== 'admin' || !profile?.isAdmin) {
+      setPendingOrdersCount(0);
+      return;
+    }
     
     const q = query(collection(db, 'orders'), where('status', '==', 'pending'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setPendingOrdersCount(snapshot.size);
+    }, (error) => {
+      // Catch and handle the permission error gracefully
+      console.error("BottomNav Order Listener Error:", error);
+      // We don't necessarily want to crash the whole app here with handleFirestoreError
+      // since it's just a count for a badge, but we should log it.
     });
     return () => unsubscribe();
-  }, [userRole]);
+  }, [userRole, profile?.isAdmin]);
 
   interface NavItem {
     icon: any;

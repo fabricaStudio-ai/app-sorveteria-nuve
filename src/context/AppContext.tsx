@@ -9,6 +9,10 @@ interface UserProfile {
   name: string;
   email: string;
   isAdmin: boolean;
+  preferredRole?: 'admin' | 'customer';
+  mpConnected?: boolean;
+  mpPublicKey?: string;
+  mpAccessToken?: string;
 }
 
 interface AppContextType {
@@ -34,7 +38,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState<'admin' | 'customer' | null>(null);
+  const [userRole, _setUserRole] = useState<'admin' | 'customer' | null>(null);
+
+  const setUserRole = (role: 'admin' | 'customer' | null) => {
+    _setUserRole(role);
+    if (user && role) {
+      const profileRef = doc(db, 'profiles', user.uid);
+      updateDoc(profileRef, { preferredRole: role }).then(() => {
+        // Sync local profile state so we don't have stale data
+        setProfile(prev => prev ? { ...prev, preferredRole: role } : null);
+      }).catch(e => {
+        console.error("Failed to save preferred role:", e);
+      });
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -63,22 +80,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
           
           // Safety fallback for the bootstrap admin email
-          const isBootstrapAdmin = currentUser.email?.toLowerCase().trim() === 'fabricasoftwareai@gmail.com';
+          const currentEmail = currentUser.email?.toLowerCase().trim();
+          const BOOTSTRAP_ADMIN = 'fabricasoftwareai@gmail.com';
+          const isBootstrapAdmin = currentEmail === BOOTSTRAP_ADMIN;
           const isActuallyAdmin = adminSnap.exists() || isBootstrapAdmin;
           
-          const updatedProfile = {
+          if (isBootstrapAdmin) {
+            console.log("Bootstrap admin detected:", currentEmail);
+          }
+
+          const updatedProfile: UserProfile = {
             ...profileData,
             isAdmin: isActuallyAdmin
           };
           
           setProfile(updatedProfile);
           
-          if (userRole === null) {
-            // All users need to select role
-            // For now, leave as null to trigger role selection screen
+          // Load preferred role if exists
+          if (updatedProfile.preferredRole) {
+            console.log("Loading preferred role from profile:", updatedProfile.preferredRole);
+            _setUserRole(updatedProfile.preferredRole);
+          } else {
+            console.log("No preferred role found in profile.");
           }
           
-          // Update profile if state changed (for local caching consistency)
           if (profileData.isAdmin !== isActuallyAdmin) {
             updateDoc(profileRef, { isAdmin: isActuallyAdmin }).catch(e => {
               console.error("Failed to sync admin status:", e);
@@ -94,9 +119,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             handleFirestoreError(e, OperationType.GET, `admins/${currentUser.uid}`);
             return;
           }
-          const isBootstrapAdmin = currentUser.email?.toLowerCase().trim() === 'fabricasoftwareai@gmail.com';
+          const currentEmail = currentUser.email?.toLowerCase().trim();
+          const BOOTSTRAP_ADMIN = 'fabricasoftwareai@gmail.com';
+          const isBootstrapAdmin = currentEmail === BOOTSTRAP_ADMIN;
           const isActuallyAdmin = adminSnap.exists() || isBootstrapAdmin;
           
+          if (isBootstrapAdmin) {
+            console.log("Bootstrap admin detected (new profile):", currentEmail);
+          }
+
           const newProfile: UserProfile = {
             userId: currentUser.uid,
             name: currentUser.displayName || '',
