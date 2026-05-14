@@ -236,7 +236,9 @@ export default function Settings() {
 
   const menuItems = [
     { icon: User, label: 'Editar Perfil', detail: profile?.name || 'Usuário', onClick: () => setShowProfileModal(true) },
-    { icon: Zap, label: 'Identidade Visual', detail: profile?.appName || 'Padrão', onClick: () => setShowBrandingModal(true) },
+    ...(userRole === 'admin' ? [
+      { icon: Zap, label: 'Identidade Visual', detail: profile?.appName || 'Padrão', onClick: () => setShowBrandingModal(true) }
+    ] : []),
     { icon: Bell, label: 'Notificações', detail: 'Ativadas' },
     { icon: Shield, label: 'Privacidade', detail: 'Seguro' },
   ];
