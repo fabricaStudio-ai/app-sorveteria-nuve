@@ -1,15 +1,11 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, query, where, getDocs, limit, doc, updateDoc, setDoc } from 'firebase/firestore';
 import dotenv from "dotenv";
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
-const firebaseConfig = require('./firebase-applet-config.json');
+import firebaseConfig from './firebase-applet-config.json';
 
 dotenv.config();
 
@@ -307,6 +303,7 @@ if (process.env.NODE_ENV !== "test" && !process.env.VERCEL && !process.env.VERCE
     const PORT = 3000;
     
     if (process.env.NODE_ENV !== "production") {
+      const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: "spa",
