@@ -17,12 +17,12 @@ export async function createPreference(items: any[], orderId?: string) {
     });
 
     if (!response.ok) {
+      const text = await response.text();
       let errorMessage = 'Failed to create payment preference';
       try {
-        const errorData = await response.json();
+        const errorData = JSON.parse(text);
         errorMessage = errorData.error || errorMessage;
       } catch (e) {
-        const text = await response.text();
         console.error('Non-JSON error response:', text);
         errorMessage = `Server error: ${text.substring(0, 100)}...`;
       }
