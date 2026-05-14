@@ -6,13 +6,16 @@ import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, query, where, getDocs, limit, doc, updateDoc, setDoc } from 'firebase/firestore';
 import dotenv from "dotenv";
-import firebaseConfig from './firebase-applet-config.json';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const firebaseConfig = require('./firebase-applet-config.json');
 
 dotenv.config();
 
 // Initialize Firebase for server-side lookup
 const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp, (firebaseConfig as any).firestoreDatabaseId);
+const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
 export const app = express();
 app.use(express.json());
@@ -34,7 +37,9 @@ app.get('/api/auth/mp/url', (req, res) => {
   if (!userId) return res.status(400).json({ error: "userId is required" });
 
   const clientId = process.env.MP_CLIENT_ID;
-  const redirectUri = `${process.env.APP_URL}/api/auth/mp/callback`;
+  const appUrl = process.env.APP_URL || (req.headers.origin ?? (req.headers.host ? `https://${req.headers.host}` : ''));
+  const redirectUri = `${appUrl}/api/auth/mp/callback`;
+
 
   if (!clientId) {
     return res.status(500).json({ error: "MP_CLIENT_ID not configured on server" });
@@ -66,6 +71,8 @@ app.get('/api/auth/mp/callback', async (req, res) => {
   }
 
   try {
+    const appUrl = process.env.APP_URL || (req.headers.origin ?? (req.headers.host ? `https://${req.headers.host}` : ''));
+    
     // Exchange code for tokens
     const response = await fetch('https://api.mercadopago.com/oauth/token', {
       method: 'POST',
@@ -77,7 +84,7 @@ app.get('/api/auth/mp/callback', async (req, res) => {
         client_secret: process.env.MP_CLIENT_SECRET!,
         grant_type: 'authorization_code',
         code: code as string,
-        redirect_uri: `${process.env.APP_URL}/api/auth/mp/callback`,
+        redirect_uri: `${appUrl}/api/auth/mp/callback`,
       })
     });
 

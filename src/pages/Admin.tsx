@@ -58,9 +58,7 @@ import {
   Share2,
   Zap,
   Instagram,
-  MessageCircle,
-  Smartphone,
-  ChevronRight
+  MessageCircle
 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { 
