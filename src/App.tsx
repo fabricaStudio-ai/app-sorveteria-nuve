@@ -100,15 +100,15 @@ function AppContent() {
 
       <main className={cn(
         "relative min-h-screen w-full bg-dark shadow-2xl pb-32",
-        userRole === 'admin' && location.pathname === '/admin' ? "max-w-none pb-0" : "max-w-md"
+        userRole === 'admin' && location.pathname === '/admin' ? "max-w-none" : "max-w-md"
       )}>
         <AnimatePresence mode="wait">
           <div key={location.pathname}>
             <Routes location={location}>
-              <Route path="/" element={<Home />} />
-              <Route path="/menu" element={<Menu />} />
-              <Route path="/promos" element={<Promos />} />
-              <Route path="/orders" element={<Orders />} />
+              <Route path="/" element={userRole === 'admin' ? <Navigate to="/admin" /> : <Home />} />
+              <Route path="/menu" element={userRole === 'admin' ? <Navigate to="/admin?tab=products" /> : <Menu />} />
+              <Route path="/promos" element={userRole === 'admin' ? <Navigate to="/admin?tab=promotions" /> : <Promos />} />
+              <Route path="/orders" element={userRole === 'admin' ? <Navigate to="/admin?tab=orders" /> : <Orders />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={userRole === 'admin' ? <Admin /> : <Navigate to="/" />} />
@@ -125,10 +125,10 @@ function AppContent() {
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
 
-      <WhatsAppFAB />
+      {userRole !== 'admin' && <WhatsAppFAB />}
       <PWAInstallPrompt />
 
-      {!isSplashVisible && location.pathname !== '/admin' && (
+      {!isSplashVisible && (
         <div className="fixed bottom-0 left-0 right-0 z-[80] pointer-events-none">
           <div className="max-w-md mx-auto pointer-events-auto">
             <BottomNav onOpenCart={() => setIsCartOpen(true)} />

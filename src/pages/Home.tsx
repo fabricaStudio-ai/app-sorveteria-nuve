@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Search, ShoppingBag, Bell, MessageCircle, ArrowRight } from 'lucide-react';
 import { PRODUCTS, CATEGORIES } from '../constants';
 import ProductCard from '../components/ProductCard';
+import ProductModal from '../components/ProductModal';
 import { useApp } from '../context/AppContext';
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -13,6 +14,13 @@ export default function Home() {
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleOpenProduct = (product: Product) => {
+    setSelectedProduct(product);
+    setIsModalOpen(true);
+  };
 
   useEffect(() => {
     const fetchHomeData = async () => {
@@ -126,7 +134,8 @@ export default function Home() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.5 }}
-            className="glass rounded-[2rem] p-6 mb-6 flex flex-col sm:flex-row gap-6 relative overflow-hidden"
+            onClick={() => handleOpenProduct(combo)}
+            className="glass rounded-[2rem] p-6 mb-6 flex flex-col sm:flex-row gap-6 relative overflow-hidden active:scale-[0.98] transition-all cursor-pointer"
           >
             <div className="w-full sm:w-32 h-32 rounded-2xl overflow-hidden shadow-xl">
               <img src={combo.image} className="w-full h-full object-cover" alt={combo.name} referrerPolicy="no-referrer" />
@@ -142,6 +151,12 @@ export default function Home() {
           </motion.div>
         ))}
       </section>
+
+      <ProductModal 
+        product={selectedProduct}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </motion.div>
   );
 }

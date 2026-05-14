@@ -125,7 +125,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
                 whileTap={{ scale: 0.9 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  addToCart(product, 1);
+                  setIsModalOpen(true);
                 }}
                 className="w-11 h-11 flex items-center justify-center rounded-2xl bg-white text-dark hover:bg-primary transition-all duration-300"
                 id={`btn-add-menu-${product.id}`}
