@@ -13,6 +13,9 @@ interface UserProfile {
   mpConnected?: boolean;
   mpPublicKey?: string;
   mpAccessToken?: string;
+  lalamoveConnected?: boolean;
+  lalamoveApiKey?: string;
+  lalamoveSecret?: string;
 }
 
 interface AppContextType {

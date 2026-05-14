@@ -21,6 +21,33 @@ export default function Settings() {
     publicKey: profile?.mpPublicKey || '',
     accessToken: profile?.mpAccessToken || ''
   });
+  
+  const [lalamoveForm, setLalamoveForm] = useState({
+    apiKey: profile?.lalamoveApiKey || '',
+    secret: profile?.lalamoveSecret || ''
+  });
+  const [showLalamoveModal, setShowLalamoveModal] = useState(false);
+  const [savingLalamove, setSavingLalamove] = useState(false);
+
+  const handleConnectLalamove = async () => {
+    if (!user) return;
+    setSavingLalamove(true);
+    try {
+      const profileRef = doc(db, 'profiles', user.uid);
+      const updateData = {
+        lalamoveApiKey: lalamoveForm.apiKey,
+        lalamoveSecret: lalamoveForm.secret,
+        lalamoveConnected: !!(lalamoveForm.apiKey && lalamoveForm.secret)
+      };
+      await updateDoc(profileRef, updateData);
+      setProfile(prev => prev ? { ...prev, ...updateData } : null);
+      setShowLalamoveModal(false);
+    } catch (e) {
+      console.error("Error saving Lalamove config:", e);
+    } finally {
+      setSavingLalamove(false);
+    }
+  };
 
   // Handle OAuth message
   useEffect(() => {
@@ -195,6 +222,44 @@ export default function Settings() {
                 </div>
               )}
             </div>
+            
+            {/* Lalamove Integration */}
+            <div className="glass rounded-[3rem] p-8 border border-white/5 bg-gradient-to-br from-[#F37021]/5 to-transparent mt-4">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 bg-[#F37021] rounded-2xl flex items-center justify-center p-2 shadow-lg shadow-[#F37021]/20">
+                  <span className="text-white font-black text-xs uppercase tracking-widest">LALA</span>
+                </div>
+                <div>
+                  <h4 className="font-bold text-lg leading-tight">Lalamove Entregas</h4>
+                  <p className="text-[10px] text-white/40 uppercase font-black tracking-widest mt-1">Integração Logística</p>
+                </div>
+              </div>
+
+              {profile?.lalamoveConnected ? (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 py-3 px-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Conectado</span>
+                  </div>
+                  <button 
+                    onClick={() => setShowLalamoveModal(true)}
+                    className="w-full py-4 glass border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-white/40"
+                  >
+                    Editar Chaves
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <p className="text-sm text-white/40 leading-relaxed font-medium">Automatize suas entregas chamando entregadores Lalamove diretamente do painel de pedidos.</p>
+                  <button 
+                    onClick={() => setShowLalamoveModal(true)}
+                    className="w-full py-4 glass border-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#F37021] hover:bg-[#F37021]/10 transition-all border-[#F37021]/20"
+                  >
+                    Configurar Integração
+                  </button>
+                </div>
+              )}
+            </div>
           </section>
         )}
 
@@ -307,6 +372,76 @@ export default function Settings() {
                 className="w-full py-5 bg-primary text-dark rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:brightness-110 disabled:opacity-50 shadow-xl shadow-primary/20"
               >
                 {saving ? 'Validando & Salvando...' : 'Salvar Credenciais'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Lalamove Setup Modal */}
+      <AnimatePresence>
+        {showLalamoveModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+          >
+            <div className="absolute inset-0 bg-dark/95 backdrop-blur-2xl" onClick={() => setShowLalamoveModal(false)} />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md glass-dark p-8 rounded-[3rem] border border-white/5 space-y-8 overflow-hidden"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-[#F37021]/10 rounded-xl flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-[#F37021]" />
+                  </div>
+                  <h2 className="text-xl font-serif italic font-bold">Configurar Lalamove</h2>
+                </div>
+                <button onClick={() => setShowLalamoveModal(false)} className="p-3 glass rounded-2xl">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-4">API Key</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                    <input 
+                      type="text" 
+                      value={lalamoveForm.apiKey}
+                      onChange={(e) => setLalamoveForm(prev => ({ ...prev, apiKey: e.target.value }))}
+                      placeholder="PK_..."
+                      className="w-full glass bg-white/5 py-4 pl-12 pr-4 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 ring-primary/50"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-4">API Secret</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                    <input 
+                      type="password" 
+                      value={lalamoveForm.secret}
+                      onChange={(e) => setLalamoveForm(prev => ({ ...prev, secret: e.target.value }))}
+                      placeholder="SK_..."
+                      className="w-full glass bg-white/5 py-4 pl-12 pr-4 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 ring-primary/50"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleConnectLalamove}
+                disabled={savingLalamove}
+                className="w-full py-5 bg-[#F37021] text-white rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:brightness-110 disabled:opacity-50 shadow-xl shadow-[#F37021]/20"
+              >
+                {savingLalamove ? 'Salvando...' : 'Salvar Credenciais'}
               </button>
             </motion.div>
           </motion.div>

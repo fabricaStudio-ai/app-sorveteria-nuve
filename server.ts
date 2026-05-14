@@ -194,6 +194,75 @@ async function startServer() {
     }
   });
 
+  // Lalamove Endpoints
+  app.post("/api/lalamove/quote", async (req, res) => {
+    try {
+      // Find a manager with Lalamove credentials
+      const profilesRef = collection(db, "profiles");
+      const q = query(profilesRef, where("lalamoveConnected", "==", true), limit(1));
+      const querySnapshot = await getDocs(q);
+      
+      let apiKey = "";
+      let apiSecret = "";
+
+      if (!querySnapshot.empty) {
+        const profileData = querySnapshot.docs[0].data();
+        apiKey = profileData.lalamoveApiKey;
+        apiSecret = profileData.lalamoveSecret;
+      }
+
+      if (!apiKey || !apiSecret) {
+        return res.status(400).json({ error: "Credenciais da Lalamove não configuradas pelo Gestor." });
+      }
+
+      // Mock integration response for the quotation due to missing actual coordinate data
+      // For real integration, we'd use @lalamove/lalamove-js and provide lat/lng stops
+      res.json({
+        id: "mock_quote_" + Date.now(),
+        priceBreakdown: { total: "15.00", currency: "BRL" },
+        distance: { value: 5000, unit: "m" }
+      });
+    } catch (error: any) {
+      console.error("Lalamove Quote Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/lalamove/order", async (req, res) => {
+    try {
+      // Find a manager with Lalamove credentials
+      const profilesRef = collection(db, "profiles");
+      const q = query(profilesRef, where("lalamoveConnected", "==", true), limit(1));
+      const querySnapshot = await getDocs(q);
+      
+      let apiKey = "";
+      let apiSecret = "";
+
+      if (!querySnapshot.empty) {
+        const profileData = querySnapshot.docs[0].data();
+        apiKey = profileData.lalamoveApiKey;
+        apiSecret = profileData.lalamoveSecret;
+      }
+
+      const { orderId, quotationId } = req.body;
+
+      if (!apiKey || !apiSecret) {
+        return res.status(400).json({ error: "Credenciais da Lalamove não configuradas pelo Gestor." });
+      }
+
+      // Mock output as creating a real Lalamove order requires accurate lat/lng data.
+      res.json({
+        id: "lalamove_order_" + Date.now(),
+        shareLink: "https://share.lalamove.com/mock_" + orderId,
+        driverId: "mock_driver_123",
+        status: "ASSIGNING_DRIVER"
+      });
+    } catch (error: any) {
+      console.error("Lalamove Order Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

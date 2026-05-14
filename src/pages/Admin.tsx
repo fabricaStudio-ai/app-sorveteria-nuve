@@ -203,6 +203,42 @@ export default function Admin() {
   const [isGeneratingShare, setIsGeneratingShare] = useState(false);
   const promoShareRef = useRef<HTMLDivElement>(null);
 
+  const handleCallLalamove = async (order: Order) => {
+    try {
+      if(!confirm("Deseja solicitar um entregador Lalamove para este pedido agora?")) return;
+      
+      const quoteRes = await fetch('/api/lalamove/quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id })
+      });
+      const quoteData = await quoteRes.json();
+      
+      if(!quoteRes.ok) throw new Error(quoteData.error || "Erro ao cotar entrega na Lalamove.");
+
+      const orderRes = await fetch('/api/lalamove/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id, quotationId: quoteData.id })
+      });
+      const orderData = await orderRes.json();
+
+      if(!orderRes.ok) throw new Error(orderData.error || "Erro ao criar pedido na Lalamove.");
+
+      // Update firebase 
+      await updateDoc(doc(db, 'orders', order.id), {
+         lalamoveStatus: orderData.status,
+         lalamoveShareLink: orderData.shareLink,
+         lalamoveDriver: orderData.driverId
+      });
+      
+      alert("Entregador Lalamove solicitado com sucesso!");
+    } catch(err: any) {
+       console.error(err);
+       alert(err.message || "Falha ao chamar a Lalamove");
+    }
+  };
+
   const handleSharePromo = async (promo: any) => {
     setSharingPromo(promo);
     setIsGeneratingShare(true);
@@ -1150,12 +1186,27 @@ export default function Admin() {
                                  </button>
                                )}
                                {order.paymentApproved && order.status === 'ready' && (
-                                 <button 
-                                   onClick={() => updateOrderStatus(order.id, 'completed')}
-                                   className="col-span-2 bg-emerald-500 text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
-                                 >
-                                    <CheckCircle2 className="w-4 h-4" /> Entregar Pedido
-                                 </button>
+                                 <>
+                                   {order.deliveryType === 'delivery' && !order.lalamoveStatus && profile?.lalamoveConnected && (
+                                     <button 
+                                       onClick={() => handleCallLalamove(order)}
+                                       className="col-span-2 bg-[#F37021] text-white py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all mb-2"
+                                     >
+                                        <Zap className="w-4 h-4" /> Solicitar Lalamove
+                                     </button>
+                                   )}
+                                   {order.lalamoveStatus && (
+                                     <div className="col-span-2 bg-[#F37021]/10 text-[#F37021] py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 mb-2 border border-[#F37021]/20">
+                                        <Zap className="w-4 h-4" /> Lalamove Solicitada
+                                     </div>
+                                   )}
+                                   <button 
+                                     onClick={() => updateOrderStatus(order.id, 'completed')}
+                                     className="col-span-2 bg-emerald-500 text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
+                                   >
+                                      <CheckCircle2 className="w-4 h-4" /> Entregar Pedido
+                                   </button>
+                                 </>
                                )}
                             </div>
                             

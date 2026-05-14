@@ -55,6 +55,11 @@ export interface Order {
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
+  address?: string;
+  deliveryType?: 'delivery' | 'pickup';
+  lalamoveStatus?: string;
+  lalamoveDriver?: string;
+  lalamoveShareLink?: string;
   createdAt: string;
   orderNumber?: string;
   paymentApproved?: boolean;
