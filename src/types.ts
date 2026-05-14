@@ -58,5 +58,6 @@ export interface Order {
   createdAt: string;
   orderNumber?: string;
   paymentApproved?: boolean;
-  paymentStatus?: 'pending' | 'approved' | 'rejected';
+  paymentStatus?: 'pending' | 'approved' | 'rejected' | 'pending_whatsapp';
+  paymentMethod?: 'online' | 'whatsapp';
 }

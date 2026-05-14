@@ -33,7 +33,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
 
   const getCustomerName = () => profile?.name || customerNameInput || 'Cliente Anônimo';
 
-  const createOrderInFirestore = async () => {
+  const createOrderInFirestore = async (method: 'online' | 'whatsapp') => {
     try {
       const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
       const orderData = {
@@ -45,7 +45,8 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         deliveryType: deliveryType,
         address: deliveryType === 'delivery' ? address : 'Retirada na Loja',
         status: 'pending',
-        paymentStatus: 'pending',
+        paymentMethod: method,
+        paymentStatus: method === 'whatsapp' ? 'pending_whatsapp' : 'pending',
         paymentApproved: false,
         createdAt: new Date().toISOString(),
         orderNumber: orderNumber
@@ -79,12 +80,12 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
       setError(null);
       
       // Create order first
-      const orderInfo = await createOrderInFirestore();
+      const orderInfo = await createOrderInFirestore('online');
       if (!orderInfo) {
         throw new Error("Não foi possível registrar o pedido no banco de dados. Verifique a conexão.");
       }
 
-      const checkoutResponse = await createPreference(cart);
+      const checkoutResponse = await createPreference(cart, orderInfo.id);
       const url = checkoutResponse.url || checkoutResponse.sandbox_url;
       
       if (url) {
@@ -115,7 +116,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
     }
 
     setIsProcessing(true);
-    const orderInfo = await createOrderInFirestore();
+    const orderInfo = await createOrderInFirestore('whatsapp');
     setIsProcessing(false);
 
     let message = `🍦 *NOVO PEDIDO - SORVETERIA NUVÊ*\n`;

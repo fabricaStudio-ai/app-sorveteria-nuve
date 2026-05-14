@@ -17,10 +17,10 @@ import Admin from './pages/Admin';
 import Auth from './pages/Auth';
 import RoleSelection from './pages/RoleSelection';
 import Settings from './pages/Settings';
+import Orders from './pages/Orders';
 
 // Empty pages for routing demonstration
 const Promos = () => <div className="p-8 text-center text-white/40">Promoções em breve...</div>;
-const Orders = () => <div className="p-8 text-center text-white/40">Seus pedidos aparecerão aqui.</div>;
 
 function AppContent() {
   const { isSplashVisible, cart, profile, loading, user, userRole } = useApp();

@@ -319,8 +319,14 @@ export default function Admin() {
     );
 
     const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
-      const ordersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-      setOrders(ordersData || []);
+      const allOrdersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
+      
+      // Filter orders: only show WhatsApp orders or approved online payments
+      const ordersData = allOrdersData.filter(
+        o => o.paymentMethod === 'whatsapp' || o.paymentApproved || o.paymentStatus === 'approved'
+      );
+      
+      setOrders(ordersData);
 
       // Check for new orders to trigger notification
       if (ordersData.length > prevOrdersCount.current && prevOrdersCount.current !== 0) {
@@ -457,7 +463,7 @@ export default function Admin() {
   };
 
   const uploadToFirebase = async (file: File, path: string): Promise<string> => {
-    if (file.size > 5 * 1024 * 1024) throw new Error("Imagem muito grande (máx 5MB)");
+    if (file.size > 25 * 1024 * 1024) throw new Error("Imagem muito grande (máx 25MB)");
     
     const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
     const storageRef = ref(storage, `${path}/${fileName}`);
@@ -944,16 +950,16 @@ export default function Admin() {
                           <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Catálogo Nuvê</h1>
                           <p className="text-white/40 text-sm mt-3 font-medium">Controle total sobre seus itens e sabores artesanais.</p>
                        </div>
-                       <div className="flex gap-4">
+                       <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
                           <button 
                             onClick={seedData}
-                            className="glass px-8 py-4 rounded-[2rem] flex items-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 border-white/5 transition-all active:scale-95"
+                            className="glass px-6 py-4 rounded-[2rem] flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest hover:bg-white/5 border-white/5 transition-all active:scale-95 w-full sm:w-auto"
                           >
                              <RefreshCw className="w-4 h-4 text-primary" /> Restaurar Padrões
                           </button>
                           <button 
                             onClick={() => openProductModal()}
-                            className="bg-white text-dark px-8 py-4 rounded-[2rem] flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_15px_30px_rgba(255,255,255,0.1)] active:scale-95 transition-all"
+                            className="bg-white text-dark px-6 py-4 rounded-[2rem] flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.15em] shadow-[0_15px_30px_rgba(255,255,255,0.1)] active:scale-95 transition-all w-full sm:w-auto"
                           >
                              <Plus className="w-5 h-5" /> Cadastrar Sabor
                           </button>
@@ -1190,7 +1196,7 @@ export default function Admin() {
                            setPromoForm({ title: '', description: '', discount: '', image: '', expiresAt: '', isActive: true, code: '' });
                            setShowPromoModal(true);
                          }}
-                         className="bg-secondary text-white px-8 py-4 rounded-[2rem] flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.15em] shadow-xl active:scale-95 transition-all"
+                         className="bg-secondary text-white px-8 py-4 rounded-[2rem] flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.15em] shadow-xl active:scale-95 transition-all w-full sm:w-auto"
                        >
                           <PlusCircle className="w-5 h-5" /> Nova Promoção
                        </button>
@@ -1566,15 +1572,15 @@ export default function Admin() {
                            )}
                         </div>
                         <div className="flex-1 relative h-12">
-                           <label className="absolute inset-0 z-10 w-full glass border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors cursor-pointer">
+                           <label className="absolute inset-0 w-full glass border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">
                               <input 
                                 type="file" 
                                 accept="image/*"
                                 onChange={handlePromoImageUpload}
                                 disabled={isUploading}
-                                className="hidden"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                               />
-                              {isUploading ? 'Enviando...' : 'Carregar Banner'}
+                              <span className="relative z-0">{isUploading ? 'Enviando...' : 'Carregar Banner'}</span>
                            </label>
                         </div>
                      </div>
@@ -1820,22 +1826,22 @@ export default function Admin() {
                            )}
                         </div>
                         <div className="flex-1 w-full space-y-4">
-                           <label className="relative h-14 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center group hover:border-primary/50 transition-all cursor-pointer">
+                           <div className="relative h-14 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center group hover:border-primary/50 transition-all cursor-pointer">
                               <input 
                                 type="file" 
                                 accept="image/*"
                                 onChange={handleImageUpload}
                                 disabled={isUploading}
-                                className="hidden"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-wait"
                               />
-                              <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 group-hover:text-primary transition-colors">
+                              <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 group-hover:text-primary transition-colors relative z-0 pointer-events-none">
                                  {isUploading ? (
                                    <>Enviando para Nuvem...</>
                                  ) : (
                                    <><PlusCircle className="w-4 h-4" /> Selecionar do Celular</>
                                  )}
                               </div>
-                           </label>
+                           </div>
                            <p className="text-[9px] text-white/20 uppercase font-bold tracking-widest ml-2">Ou cole uma URL abaixo:</p>
                            <input 
                              type="text" 
