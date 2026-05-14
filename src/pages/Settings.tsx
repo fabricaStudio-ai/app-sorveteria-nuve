@@ -1,13 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronLeft, User, Bell, Shield, Moon, CircleHelp, 
   CreditCard, ExternalLink, X, CheckCircle2, Lock,
-  Plus, AlertCircle, ChevronRight
+  Plus, AlertCircle, ChevronRight, Zap
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export default function Settings() {
@@ -15,11 +15,58 @@ export default function Settings() {
   const { profile, userRole, user, setProfile } = useApp();
   const [showMPModal, setShowMPModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   
   const [mpForm, setMpForm] = useState({
     publicKey: profile?.mpPublicKey || '',
     accessToken: profile?.mpAccessToken || ''
   });
+
+  // Handle OAuth message
+  useEffect(() => {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'MP_AUTH_SUCCESS') {
+        // Refresh profile data from Firestore
+        if (user) {
+          const profileRef = doc(db, 'profiles', user.uid);
+          const snap = await getDoc(profileRef);
+          if (snap.exists()) {
+            setProfile(snap.data() as any);
+          }
+        }
+        setConnecting(false);
+      } else if (event.data?.type === 'MP_AUTH_ERROR') {
+        console.error("MP Auth Error:", event.data.error);
+        setConnecting(false);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [user, setProfile]);
+
+  const handleConnectAutomatic = async () => {
+    if (!user) return;
+    setConnecting(true);
+    try {
+      const response = await fetch(`/api/auth/mp/url?userId=${user.uid}`);
+      const { url } = await response.json();
+      
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      
+      window.open(
+        url,
+        'mp_auth_popup',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+    } catch (e) {
+      console.error("Error starting MP OAuth:", e);
+      setConnecting(false);
+    }
+  };
 
   const handleConnectMP = async () => {
     if (!user) return;
@@ -105,22 +152,46 @@ export default function Settings() {
                     <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                     <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Conectado e Operacional</span>
                   </div>
-                  <button 
-                    onClick={() => setShowMPModal(true)}
-                    className="w-full py-4 glass border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all"
-                  >
-                    Editar Credenciais
-                  </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={handleConnectAutomatic}
+                      disabled={connecting}
+                      className="py-4 glass border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Zap className="w-3 h-3" /> {connecting ? '...' : 'Reconectar'}
+                    </button>
+                    <button 
+                      onClick={() => setShowMPModal(true)}
+                      className="py-4 glass border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-white/40"
+                    >
+                      Editar Chaves
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
                   <p className="text-sm text-white/40 leading-relaxed font-medium">Libere pagamentos via PIX e Cartão para seus clientes. O dinheiro cai instantaneamente na sua conta.</p>
-                  <button 
-                    onClick={() => setShowMPModal(true)}
-                    className="w-full py-5 bg-[#009EE3] hover:brightness-110 text-white shadow-xl shadow-[#009EE3]/20 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3"
-                  >
-                    <Plus className="w-4 h-4" /> Conectar Credenciais
-                  </button>
+                  
+                  <div className="space-y-3">
+                    <button 
+                      onClick={handleConnectAutomatic}
+                      disabled={connecting}
+                      className="w-full py-5 bg-[#009EE3] hover:brightness-110 text-white shadow-xl shadow-[#009EE3]/20 rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-3"
+                    >
+                      {connecting ? (
+                        <>Iniciando Conexão...</>
+                      ) : (
+                        <><Zap className="w-4 h-4 fill-current" /> Conectar Automaticamente</>
+                      )}
+                    </button>
+                    
+                    <button 
+                      onClick={() => setShowMPModal(true)}
+                      className="w-full py-4 glass border-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/30 hover:text-white/60 transition-all"
+                    >
+                      Configurar Manualmente (Avançado)
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

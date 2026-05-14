@@ -4,7 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, limit, doc, updateDoc } from 'firebase/firestore';
 import dotenv from "dotenv";
 import firebaseConfig from './firebase-applet-config.json';
 
@@ -32,6 +32,104 @@ async function startServer() {
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // Mercado Pago OAuth Routes
+  app.get('/api/auth/mp/url', (req, res) => {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ error: "userId is required" });
+
+    const clientId = process.env.MP_CLIENT_ID;
+    const redirectUri = `${process.env.APP_URL}/api/auth/mp/callback`;
+
+    if (!clientId) {
+      return res.status(500).json({ error: "MP_CLIENT_ID not configured on server" });
+    }
+
+    // Construct MP Authorization URL
+    const params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      platform_id: 'mp',
+      redirect_uri: redirectUri,
+      state: userId as string
+    });
+
+    const authUrl = `https://auth.mercadopago.com.br/authorization?${params.toString()}`;
+    res.json({ url: authUrl });
+  });
+
+  app.get('/api/auth/mp/callback', async (req, res) => {
+    const { code, state: userId } = req.query;
+
+    if (!code || !userId) {
+      return res.send(`
+        <html><body><script>
+          window.opener.postMessage({ type: 'MP_AUTH_ERROR', error: 'Missing code or state' }, '*');
+          window.close();
+        </script></body></html>
+      `);
+    }
+
+    try {
+      // Exchange code for tokens
+      const response = await fetch('https://api.mercadopago.com/oauth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          client_id: process.env.MP_CLIENT_ID!,
+          client_secret: process.env.MP_CLIENT_SECRET!,
+          grant_type: 'authorization_code',
+          code: code as string,
+          redirect_uri: `${process.env.APP_URL}/api/auth/mp/callback`,
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to exchange tokens');
+      }
+
+      // data contains: access_token, public_key, refresh_token, etc.
+      const { access_token, public_key } = data;
+
+      // Update Firestore
+      const profileRef = doc(db, 'profiles', userId as string);
+      await updateDoc(profileRef, {
+        mpConnected: true,
+        mpAccessToken: access_token,
+        mpPublicKey: public_key,
+        updatedAt: new Date().toISOString()
+      });
+
+      res.send(`
+        <html>
+          <body style="background: #050505; color: white; display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif;">
+            <div style="text-align: center;">
+              <h2 style="color: #00F2FF;">Conectado com Sucesso!</h2>
+              <p>Suas credenciais do Mercado Pago foram vinculadas.</p>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage({ type: 'MP_AUTH_SUCCESS' }, '*');
+                  setTimeout(() => window.close(), 1000);
+                }
+              </script>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error: any) {
+      console.error("MP OAuth Error:", error);
+      res.send(`
+        <html><body><script>
+          window.opener.postMessage({ type: 'MP_AUTH_ERROR', error: '${error.message}' }, '*');
+          window.close();
+        </script></body></html>
+      `);
+    }
   });
 
   app.post("/api/create-preference", async (req, res) => {
