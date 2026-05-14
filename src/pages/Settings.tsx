@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   ChevronLeft, User, Bell, Shield, Moon, CircleHelp, 
   CreditCard, ExternalLink, X, CheckCircle2, Lock,
-  Plus, AlertCircle, ChevronRight, Zap
+  Plus, AlertCircle, ChevronRight, Zap, Palette, Layout
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { doc, updateDoc, getDoc, setDoc, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { THEME_PALETTES, THEME_STRUCTURES } from '../constants';
+import { cn } from '../lib/utils';
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -34,6 +36,8 @@ export default function Settings() {
   const [imgbbConfig, setImgbbConfig] = useState(profile?.imgbbApiKey || '');
   const [appName, setAppName] = useState(profile?.appName || '');
   const [appLogo, setAppLogo] = useState(profile?.appLogo || '');
+  const [themeColor, setThemeColor] = useState(profile?.themeColor || 'default');
+  const [themeStructure, setThemeStructure] = useState(profile?.themeStructure || 'modern');
   const [showBrandingModal, setShowBrandingModal] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -43,6 +47,8 @@ export default function Settings() {
       if (profile.name) setProfileName(profile.name);
       setAppName(profile.appName || '');
       setAppLogo(profile.appLogo || '');
+      setThemeColor(profile.themeColor || 'default');
+      setThemeStructure(profile.themeStructure || 'modern');
       setImgbbConfig(profile.imgbbApiKey || '');
       setMpForm({
         publicKey: profile.mpPublicKey || '',
@@ -62,6 +68,8 @@ export default function Settings() {
       const updateData = {
         appName: appName,
         appLogo: appLogo,
+        themeColor: themeColor,
+        themeStructure: themeStructure,
         updatedAt: new Date().toISOString()
       };
       await updateDoc(doc(db, 'profiles', user.uid), updateData);
@@ -741,7 +749,7 @@ export default function Settings() {
                  </button>
                </div>
 
-               <div className="space-y-6">
+               <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
                  <div className="space-y-2">
                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-4">Nome da Loja</label>
                    <input 
@@ -772,13 +780,60 @@ export default function Settings() {
                        <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
                      </label>
                    </div>
-                   {appLogo && (
-                     <div className="mt-4 flex justify-center">
-                        <div className="w-20 h-20 glass rounded-2xl p-2 border border-white/5 overflow-hidden">
-                           <img src={appLogo} className="w-full h-full object-contain" alt="Preview" referrerPolicy="no-referrer" />
-                        </div>
-                     </div>
-                   )}
+                 </div>
+
+                 <div className="space-y-4">
+                   <div className="flex items-center gap-2 ml-4">
+                     <Palette className="w-3 h-3 text-primary" />
+                     <label className="text-[10px] font-black uppercase tracking-widest text-white/30">Paleta de Cores</label>
+                   </div>
+                   <div className="grid grid-cols-2 gap-3">
+                     {THEME_PALETTES.map((palette) => (
+                       <button
+                         key={palette.id}
+                         onClick={() => setThemeColor(palette.id)}
+                         className={cn(
+                           "p-4 rounded-2xl border transition-all flex items-center gap-3 text-left",
+                           themeColor === palette.id 
+                             ? "glass border-primary bg-primary/5" 
+                             : "glass-dark border-white/5 hover:border-white/10"
+                         )}
+                       >
+                         <div className="flex shrink-0">
+                           <div className="w-4 h-4 rounded-full -mr-1 shadow-lg" style={{ backgroundColor: palette.primary }} />
+                           <div className="w-4 h-4 rounded-full shadow-lg" style={{ backgroundColor: palette.secondary }} />
+                         </div>
+                         <span className="text-[10px] font-bold uppercase tracking-wider truncate">{palette.label}</span>
+                       </button>
+                     ))}
+                   </div>
+                 </div>
+
+                 <div className="space-y-4 pb-4">
+                   <div className="flex items-center gap-2 ml-4">
+                     <Layout className="w-3 h-3 text-primary" />
+                     <label className="text-[10px] font-black uppercase tracking-widest text-white/30">Estrutura Visual</label>
+                   </div>
+                   <div className="grid grid-cols-2 gap-3">
+                     {THEME_STRUCTURES.map((struct) => (
+                       <button
+                         key={struct.id}
+                         onClick={() => setThemeStructure(struct.id)}
+                         className={cn(
+                           "p-4 rounded-2xl border transition-all flex flex-col gap-1 items-start text-left",
+                           themeStructure === struct.id 
+                             ? "glass border-primary bg-primary/5" 
+                             : "glass-dark border-white/5 hover:border-white/10"
+                         )}
+                       >
+                         <span className="text-[10px] font-black uppercase tracking-widest">{struct.label}</span>
+                         <div className="flex gap-1">
+                           <div className="w-8 h-2 bg-white/10" style={{ borderRadius: struct.radius }} />
+                           <div className="w-4 h-2 bg-primary/20" style={{ borderRadius: struct.radius }} />
+                         </div>
+                       </button>
+                     ))}
+                   </div>
                  </div>
                </div>
 

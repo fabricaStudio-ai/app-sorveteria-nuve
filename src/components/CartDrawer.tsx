@@ -360,15 +360,13 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   onClick={handleOnlinePayment}
                   className={cn(
                     "w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50",
-                    !isMPAvailable 
-                      ? "glass text-white/30 border-white/5" 
-                      : "bg-primary text-dark shadow-[0_15px_30px_rgba(0,242,255,0.2)] hover:brightness-110"
+                    "bg-[#00c853] text-white shadow-[0_15px_30px_rgba(0,200,83,0.2)] hover:brightness-110"
                   )}
                 >
                   {isProcessing ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <>Pagar c/ Mercado Pago <CreditCard className="w-4 h-4" /></>
+                    <>Pagar <CreditCard className="w-4 h-4" /></>
                   )}
                 </motion.button>
 
@@ -378,9 +376,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   onClick={handleWhatsAppCheckout}
                   className={cn(
                     "w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50",
-                    !isMPAvailable
-                      ? "bg-primary text-dark shadow-[0_15px_30px_rgba(0,242,255,0.2)] hover:brightness-110"
-                      : "glass text-white/50 hover:text-white"
+                    "bg-primary text-dark shadow-[0_15px_30px_rgba(0,242,255,0.2)] hover:brightness-110"
                   )}
                 >
                   Pedir via WhatsApp <MessageCircle className="w-4 h-4" />

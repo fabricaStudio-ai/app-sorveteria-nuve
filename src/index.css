@@ -5,11 +5,14 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Playfair Display", serif;
   
-  --color-primary: #00f2ff; /* Neon Blue */
-  --color-secondary: #a855f7; /* Soft Purple */
+  --color-primary: var(--primary, #00f2ff);
+  --color-secondary: var(--secondary, #a855f7);
   --color-dark: #09090b;
   --color-glass: rgba(255, 255, 255, 0.03);
   --color-glass-border: rgba(255, 255, 255, 0.1);
+  --radius-xl: var(--radius-factor, 1rem);
+  --radius-2xl: calc(var(--radius-factor, 1rem) * 1.5);
+  --radius-3xl: calc(var(--radius-factor, 1rem) * 2);
 }
 
 @layer base {

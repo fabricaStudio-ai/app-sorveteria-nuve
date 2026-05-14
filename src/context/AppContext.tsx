@@ -4,6 +4,8 @@ import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
+import { THEME_PALETTES, THEME_STRUCTURES } from '../constants';
+
 interface UserProfile {
   userId: string;
   name: string;
@@ -19,6 +21,8 @@ interface UserProfile {
   imgbbApiKey?: string;
   appName?: string;
   appLogo?: string;
+  themeColor?: string;
+  themeStructure?: string;
   points?: number;
 }
 
@@ -60,6 +64,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
     }
   };
+
+  useEffect(() => {
+    if (profile) {
+      // Apply theme colors
+      const palette = THEME_PALETTES.find(p => p.id === (profile.themeColor || 'default')) || THEME_PALETTES[0];
+      document.documentElement.style.setProperty('--primary', palette.primary);
+      document.documentElement.style.setProperty('--secondary', palette.secondary);
+      
+      // Apply theme structure
+      const structure = THEME_STRUCTURES.find(s => s.id === (profile.themeStructure || 'modern')) || THEME_STRUCTURES[0];
+      document.documentElement.style.setProperty('--radius-factor', structure.radius);
+      
+      // Handle font (if needed, though mostly used via classes)
+      if (structure.font === 'font-serif') {
+        document.body.classList.add('font-serif');
+        document.body.classList.remove('font-sans');
+      } else {
+        document.body.classList.add('font-sans');
+        document.body.classList.remove('font-serif');
+      }
+    }
+  }, [profile]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {

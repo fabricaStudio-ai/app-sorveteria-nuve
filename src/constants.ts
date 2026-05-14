@@ -33,6 +33,22 @@ export const CATEGORIES: Category[] = [
   { id: 'combos', name: 'Combos', icon: '🎁' },
 ];
 
+export const THEME_PALETTES = [
+  { id: 'default', label: 'Neon Nuvê', primary: '#00f2ff', secondary: '#a855f7' },
+  { id: 'strawberry', label: 'Morango Doce', primary: '#ff4d94', secondary: '#ff0000' },
+  { id: 'pistachio', label: 'Pistache Real', primary: '#99ff33', secondary: '#166534' },
+  { id: 'orange', label: 'Tropical Mix', primary: '#fb923c', secondary: '#fbbf24' },
+  { id: 'lavender', label: 'Lavanda Soft', primary: '#c084fc', secondary: '#6366f1' },
+  { id: 'dark-gold', label: 'Premium Gold', primary: '#fbbf24', secondary: '#d97706' },
+];
+
+export const THEME_STRUCTURES = [
+  { id: 'modern', label: 'Moderno', radius: '1rem', font: 'font-sans' },
+  { id: 'rounded', label: 'Super Arredondado', radius: '2.5rem', font: 'font-sans' },
+  { id: 'elegant', label: 'Elegante', radius: '1.5rem', font: 'font-serif' },
+  { id: 'sharp', label: 'Minimalista', radius: '0.25rem', font: 'font-sans' },
+];
+
 export const PRODUCTS: Product[] = [
   {
     id: '1',
