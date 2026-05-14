@@ -53,8 +53,10 @@ import {
   CheckCircle2,
   AlertCircle,
   Volume2,
-  Sparkles
+  Sparkles,
+  Share2
 } from 'lucide-react';
+import * as htmlToImage from 'html-to-image';
 import { 
   BarChart, 
   Bar, 
@@ -197,6 +199,57 @@ export default function Admin() {
     isActive: true,
     code: ''
   });
+  const [sharingPromo, setSharingPromo] = useState<any | null>(null);
+  const [isGeneratingShare, setIsGeneratingShare] = useState(false);
+  const promoShareRef = useRef<HTMLDivElement>(null);
+
+  const handleSharePromo = async (promo: any) => {
+    setSharingPromo(promo);
+    setIsGeneratingShare(true);
+    
+    // allow render
+    setTimeout(async () => {
+       if (promoShareRef.current) {
+          try {
+             const dataUrl = await htmlToImage.toPng(promoShareRef.current, {
+                quality: 1,
+                pixelRatio: 1 // Keep size reasonable
+             });
+             
+             // Convert string dataUrl to a File object
+             const res = await fetch(dataUrl);
+             const blob = await res.blob();
+             const file = new File([blob], `promocao_${promo.id}.png`, { type: 'image/png' });
+
+             const appUrl = window.location.origin;
+             const textToShare = `*${promo.title}*\n${promo.discount}\n\n${promo.description}\n\n👉 Peça agora: ${appUrl}`;
+
+             if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                  title: promo.title,
+                  text: textToShare,
+                  files: [file]
+                });
+             } else {
+                // Fallback: download image and open WhatsApp
+                const a = document.createElement('a');
+                a.href = dataUrl;
+                a.download = `promocao_${promo.id}.png`;
+                a.click();
+                
+                const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textToShare + " (Imagem salva nos downloads)")}`;
+                window.open(waUrl, '_blank');
+             }
+          } catch(e) {
+             console.error("Error sharing promo:", e);
+             alert("Não foi possível gerar a imagem da promoção para compartilhar.");
+          }
+       }
+       setIsGeneratingShare(false);
+       setSharingPromo(null);
+    }, 500);
+  };
+
   const [productForm, setProductForm] = useState({
     name: '',
     description: '',
@@ -1151,6 +1204,14 @@ export default function Admin() {
                                   <Sparkles className="w-6 h-6" />
                                </div>
                                <div className="flex gap-2">
+                                  <button 
+                                     onClick={() => handleSharePromo(promo)} 
+                                     disabled={isGeneratingShare}
+                                     className="px-4 py-3 bg-[#25D366]/10 text-[#25D366] rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-[#25D366]/20 transition-all active:scale-95 border border-[#25D366]/20"
+                                     title="Compartilhar no WhatsApp"
+                                  >
+                                     <Share2 className="w-4 h-4" /> {isGeneratingShare && sharingPromo?.id === promo.id ? 'Gerando...' : 'Status'}
+                                  </button>
                                   <button onClick={() => { setEditingPromo(promo); setPromoForm(promo); setShowPromoModal(true); }} className="p-3 glass rounded-xl text-white/20 hover:text-white transition-colors">
                                      <Edit className="w-4 h-4" />
                                   </button>
@@ -1469,7 +1530,7 @@ export default function Admin() {
         {showPromoModal && (
           <motion.div key="modal-promo">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setShowPromoModal(false)} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100]" />
-            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md glass-dark p-10 rounded-[3rem] border-white/5 z-[101] shadow-2xl">
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-md glass-dark p-6 md:p-10 rounded-[3rem] border-white/5 z-[101] shadow-2xl max-h-[85vh] overflow-y-auto scrollbar-none">
                <div className="flex items-center justify-between mb-8">
                   <h2 className="text-2xl font-serif italic font-bold">{editingPromo ? 'Editar' : 'Nova'} Promoção</h2>
                   <button onClick={() => setShowPromoModal(false)} className="p-2 glass rounded-xl">
@@ -1505,16 +1566,16 @@ export default function Admin() {
                            )}
                         </div>
                         <div className="flex-1 relative h-12">
-                           <input 
-                             type="file" 
-                             accept="image/*"
-                             onChange={handlePromoImageUpload}
-                             disabled={isUploading}
-                             className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full"
-                           />
-                           <div className="absolute inset-0 glass border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">
+                           <label className="absolute inset-0 z-10 w-full glass border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors cursor-pointer">
+                              <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={handlePromoImageUpload}
+                                disabled={isUploading}
+                                className="hidden"
+                              />
                               {isUploading ? 'Enviando...' : 'Carregar Banner'}
-                           </div>
+                           </label>
                         </div>
                      </div>
                   </div>
@@ -1759,13 +1820,13 @@ export default function Admin() {
                            )}
                         </div>
                         <div className="flex-1 w-full space-y-4">
-                           <div className="relative h-14 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center group hover:border-primary/50 transition-all cursor-pointer">
+                           <label className="relative h-14 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center group hover:border-primary/50 transition-all cursor-pointer">
                               <input 
                                 type="file" 
                                 accept="image/*"
                                 onChange={handleImageUpload}
                                 disabled={isUploading}
-                                className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full disabled:cursor-wait"
+                                className="hidden"
                               />
                               <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 group-hover:text-primary transition-colors">
                                  {isUploading ? (
@@ -1774,7 +1835,7 @@ export default function Admin() {
                                    <><PlusCircle className="w-4 h-4" /> Selecionar do Celular</>
                                  )}
                               </div>
-                           </div>
+                           </label>
                            <p className="text-[9px] text-white/20 uppercase font-bold tracking-widest ml-2">Ou cole uma URL abaixo:</p>
                            <input 
                              type="text" 
@@ -1946,6 +2007,54 @@ export default function Admin() {
           )}
         </AnimatePresence>
       </AnimatePresence>
+
+      {/* Hidden Status generator */}
+      <div className="absolute -left-[9999px] top-0 pointer-events-none">
+        <div 
+          ref={promoShareRef}
+          className="w-[1080px] h-[1920px] bg-[#050505] flex flex-col relative overflow-hidden"
+          style={{ fontFamily: 'sans-serif' }}
+        >
+          {sharingPromo && (
+            <>
+              {/* background */}
+              {sharingPromo.image ? (
+                <img src={sharingPromo.image} className="absolute inset-0 w-full h-full object-cover opacity-60" crossOrigin="anonymous" />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-[#00f2ff]/40 to-[#ff00d4]/40" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/50 to-transparent" />
+              
+              <div className="relative z-10 flex flex-col items-center justify-center h-full p-20 text-center">
+                <div className="bg-white/10 backdrop-blur-3xl p-16 rounded-[4rem] border border-white/20 w-full max-w-[800px] shadow-2xl">
+                  <span className="text-[#ff00d4] text-5xl font-black uppercase tracking-[0.3em] mb-12 inline-block px-10 py-6 bg-white/5 rounded-full border border-white/10">
+                    Oferta Especial
+                  </span>
+                  <h2 className="text-[100px] font-serif italic font-bold text-white leading-tight mb-8">{sharingPromo.title}</h2>
+                  <p className="text-[140px] font-black text-[#00f2ff] drop-shadow-[0_0_60px_rgba(0,242,255,0.8)] leading-none mb-12">{sharingPromo.discount}</p>
+                  <p className="text-4xl text-white/80 leading-relaxed max-w-[700px] mx-auto mb-16">{sharingPromo.description}</p>
+                  
+                  {sharingPromo.code && (
+                    <div className="bg-white/10 rounded-3xl p-10 inline-block border-[4px] border-dashed border-white/30 mb-8 backdrop-blur-md">
+                       <p className="text-3xl text-white/60 font-medium uppercase tracking-widest mb-4">Código do Cupom</p>
+                       <p className="text-7xl font-mono font-black text-white tracking-widest">{sharingPromo.code}</p>
+                    </div>
+                  )}
+                  
+                  <div className="mt-16 pt-16 border-t border-white/20 flex flex-col items-center gap-6">
+                     <p className="text-4xl font-bold text-white/70">Peça agora no nosso site!</p>
+                     <p className="text-5xl font-black text-[#00f2ff] tracking-widest">{window.location.host}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="absolute bottom-20 left-0 right-0 flex justify-center opacity-40">
+                 <p className="text-2xl font-black text-white tracking-[0.5em] uppercase">Sorveteria Nuvê</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 }
