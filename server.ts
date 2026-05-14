@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, query, where, getDocs, limit, doc, updateDoc, setDoc } from 'firebase/firestore';
@@ -140,8 +139,17 @@ app.get('/api/auth/mp/callback', async (req, res) => {
 
 app.post("/api/create-preference", async (req, res) => {
   try {
-    const { items, success_url, failure_url, pending_url } = req.body;
-    
+    let payload = req.body;
+    if (typeof payload === 'string') {
+      try { payload = JSON.parse(payload); } catch (e) {}
+    }
+    const { items, success_url, failure_url, pending_url } = payload || {};
+
+    if (!items || !Array.isArray(items)) {
+      console.error("Invalid body format. req.body:", req.body);
+      return res.status(400).json({ error: "Invalid or missing items array in request body." });
+    }
+
     // Look for a manager with Mercado Pago credentials
     let accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     
@@ -310,8 +318,7 @@ if (process.env.NODE_ENV !== "test" && !process.env.VERCEL && !process.env.VERCE
       });
       app.use(vite.middlewares);
     } else {
-      const __dirname = path.dirname(fileURLToPath(import.meta.url));
-      const distPath = path.join(__dirname, "dist");
+      const distPath = path.join(process.cwd(), "dist");
       app.use(express.static(distPath));
       app.get("*", (req, res) => {
         res.sendFile(path.join(distPath, "index.html"));
