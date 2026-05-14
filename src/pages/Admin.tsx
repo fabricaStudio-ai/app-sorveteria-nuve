@@ -401,6 +401,17 @@ export default function Admin() {
     return () => unsubscribe();
   }, [profile]);
 
+  const deleteOrder = async (id: string) => {
+    console.log("Attempting to delete order:", id);
+    try {
+      await deleteDoc(doc(db, 'orders', id));
+      console.log("Order deleted successfully:", id);
+    } catch (e) {
+      console.error("Delete order error:", e);
+      handleFirestoreError(e, OperationType.DELETE, `orders/${id}`);
+    }
+  };
+
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
       const orderRef = doc(db, 'orders', orderId);
@@ -1244,9 +1255,37 @@ export default function Admin() {
                            )}
                          >
                             <div className="flex justify-between items-start mb-6">
-                               <div className="px-5 py-2 glass-dark rounded-2xl border-white/5">
-                                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Mesa/Pedido</span>
-                                  <p className="text-xl font-bold text-primary font-mono">#{order.orderNumber || order.id.slice(-4).toUpperCase()}</p>
+                               <div className="flex gap-3">
+                                  <div className="px-5 py-2 glass-dark rounded-2xl border-white/5">
+                                     <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Mesa/Pedido</span>
+                                     <p className="text-xl font-bold text-primary font-mono">#{order.orderNumber || order.id.slice(-4).toUpperCase()}</p>
+                                  </div>
+                                  <button 
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      const btn = e.currentTarget;
+                                      if (btn.dataset.confirm === "true") {
+                                        deleteOrder(order.id);
+                                        btn.dataset.confirm = "false";
+                                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
+                                      } else {
+                                        btn.dataset.confirm = "true";
+                                        btn.innerHTML = '<span class="text-[8px] font-bold">CONFIRMAR?</span>';
+                                        setTimeout(() => {
+                                          if (btn) {
+                                            btn.dataset.confirm = "false";
+                                            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
+                                          }
+                                        }, 3000);
+                                      }
+                                    }}
+                                    className="p-3 glass rounded-2xl text-white/50 hover:text-red-500 hover:bg-red-500/20 border-white/10 bg-white/5 transition-all active:scale-95 flex items-center justify-center self-center relative z-30 pointer-events-auto min-w-[50px] min-h-[50px]"
+                                    title="Excluir Pedido"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
                                </div>
                                <div className="text-right">
                                   <div className="flex items-center gap-2 justify-end mb-1">
