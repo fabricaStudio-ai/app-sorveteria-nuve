@@ -8,11 +8,14 @@ import { useApp } from '../context/AppContext';
 import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Product } from '../types';
+import { Tag, Star, Gift } from 'lucide-react';
 
 export default function Home() {
-  const { cart } = useApp();
+  const { cart, profile, addToCart } = useApp();
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [activeOffers, setActiveOffers] = useState<any[]>([]);
+  const [promoProducts, setPromoProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,10 +34,22 @@ export default function Home() {
         
         setDbProducts(data);
         setFeaturedProducts(data.filter(p => p.isBestSeller).slice(0, 3));
+        setPromoProducts(data.filter(p => p.category === 'promocao'));
         setCombos(data.filter(p => p.category === 'combos'));
+
+        // Fetch real promotions from 'promotions' collection
+        try {
+          const promoSnap = await getDocs(query(collection(db, 'promotions'), where('isActive', '==', true), limit(5)));
+          setActiveOffers(promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        } catch (err) {
+          console.error("Error fetching active offers:", err);
+          setActiveOffers([]);
+        }
       } catch (e) {
         console.error(e);
         setFeaturedProducts([]);
+        setPromoProducts([]);
+        setActiveOffers([]);
         setCombos([]);
       }
     };
@@ -50,46 +65,106 @@ export default function Home() {
     >
       {/* Header */}
       <header className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-white/40 text-[10px] uppercase font-bold tracking-[0.3em] mb-1">Bem-vindo à</h2>
-          <h1 className="text-2xl font-serif italic font-bold tracking-tighter neon-glow flex items-center gap-2">
-            Sorveteria Nuvê
-          </h1>
+        <div className="flex items-center gap-3">
+          {profile?.appLogo && (
+            <div className="w-12 h-12 glass rounded-2xl p-2 border border-white/5 flex items-center justify-center">
+              <img src={profile.appLogo} className="w-full h-full object-contain" alt="Logo" referrerPolicy="no-referrer" />
+            </div>
+          )}
+          <div>
+            <h2 className="text-white/40 text-[10px] uppercase font-bold tracking-[0.3em] mb-1">Bem-vindo à</h2>
+            <h1 className="text-2xl font-serif italic font-bold tracking-tighter neon-glow">
+              {profile?.appName || 'Sorveteria Nuvê'}
+            </h1>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <button className="w-10 h-10 glass rounded-xl flex items-center justify-center text-white/60">
-            <Bell className="w-5 h-5" />
-          </button>
-          <a 
-            href="https://wa.me/5500000000000" 
-            target="_blank" 
-            className="w-10 h-10 glass rounded-xl flex items-center justify-center text-primary"
-          >
-            <MessageCircle className="w-5 h-5" />
-          </a>
+        <div className="flex items-center gap-2">
+           {profile && (
+             <motion.div 
+               whileHover={{ scale: 1.05 }}
+               className="glass px-4 py-2 rounded-2xl flex items-center gap-2 border-primary/20"
+             >
+               <div className="w-6 h-6 bg-primary/20 rounded-lg flex items-center justify-center">
+                 <Gift className="w-3 h-3 text-primary" />
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-[8px] font-black uppercase tracking-widest text-white/40 leading-none">Pontos</span>
+                 <span className="text-xs font-bold text-primary leading-tight">{profile.points || 0}</span>
+               </div>
+             </motion.div>
+           )}
+           <div className="flex gap-2">
+             <button className="w-10 h-10 glass rounded-xl flex items-center justify-center text-white/60">
+               <Bell className="w-5 h-5" />
+             </button>
+           </div>
         </div>
       </header>
 
-      {/* Promocional Banner */}
-      <section className="mb-10 relative group">
-        <div className="relative h-48 rounded-[2.5rem] overflow-hidden shadow-[0_20px_50px_rgba(0,242,255,0.15)]">
-          <img 
-            src="https://images.unsplash.com/photo-1549395156-e0c1fe6fc7a5?q=80&w=1200&auto=format&fit=crop" 
-            className="w-full h-full object-cover" 
-            alt="Banner Promocional"
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-dark via-dark/40 to-transparent">
-            <div className="p-8 flex flex-col justify-center h-full max-w-[60%]">
-              <span className="text-primary text-[10px] font-black uppercase tracking-widest mb-2 bg-primary/10 w-fit px-2 py-0.5 rounded">Oferta Especial</span>
-              <h3 className="text-2xl font-serif italic leading-tight font-bold mb-4">Combo Astros por R$ 34,90</h3>
-              <button className="bg-white text-dark px-5 py-2 rounded-xl text-xs font-bold w-fit flex items-center gap-2 hover:bg-primary transition-colors">
-                Pedir Agora <ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
+      {/* Promotions Highlight */}
+      {activeOffers.length > 0 && (
+        <section className="mb-8 overflow-hidden">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+            <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary animate-flash">Promoções em Destaque</h3>
           </div>
-        </div>
-      </section>
+          
+          <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1 scrollbar-none">
+            {activeOffers.map((promo) => (
+              <div key={promo.id} className="min-w-[85%] sm:min-w-[70%] glass rounded-[2.5rem] p-1 border-primary/10 overflow-hidden relative group">
+                <div className="bg-gradient-to-r from-primary/10 to-transparent p-6 rounded-[2.3rem] flex items-center justify-between min-h-[140px]">
+                  <div className="space-y-1 relative z-10 flex-1 pr-4">
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-primary" />
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">Oferta Nuvê</span>
+                    </div>
+                    <h4 className="text-lg font-serif italic font-bold leading-tight line-clamp-2">{promo.title}</h4>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xl font-black text-white leading-none">{promo.discount}</p>
+                      {promo.price && (
+                        <>
+                          <span className="w-1 h-1 bg-white/20 rounded-full" />
+                          <p className="text-lg font-bold text-primary">R$ {parseFloat(promo.price).toFixed(2).replace('.', ',')}</p>
+                        </>
+                      )}
+                    </div>
+                    {promo.code && (
+                      <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest leading-relaxed mt-2">Use: <span className="text-white bg-white/10 px-2 py-0.5 rounded-lg">{promo.code}</span></p>
+                    )}
+                    
+                    {promo.price && (
+                      <button 
+                        onClick={() => addToCart({
+                          id: promo.id,
+                          name: promo.title,
+                          description: promo.description,
+                          price: parseFloat(promo.price),
+                          image: promo.image || 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?q=80&w=600&auto=format&fit=crop',
+                          category: 'promocao',
+                          rating: 5,
+                          stock: 99
+                        } as Product, 1)}
+                        className="mt-4 bg-primary text-dark px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest w-fit hover:brightness-110 active:scale-95 transition-all shadow-lg"
+                      >
+                        Adicionar
+                      </button>
+                    )}
+                  </div>
+                  {promo.image ? (
+                    <div className="w-24 h-24 rounded-2xl overflow-hidden shadow-2xl relative z-10 border border-white/5 flex-shrink-0 animate-flash">
+                      <img src={promo.image} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center animate-flash scale-110 flex-shrink-0">
+                      <Star className="w-10 h-10 text-primary" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Categories */}
       <section className="mb-10 overflow-hidden">
@@ -124,6 +199,21 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* Promotions Section */}
+      {promoProducts.length > 0 && (
+        <section className="mb-10">
+          <div className="flex items-center gap-2 mb-6 px-1">
+            <h3 className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em]">Super Ofertas</h3>
+            <span className="bg-primary/20 text-primary text-[8px] font-black px-2 py-0.5 rounded-full animate-flash">OFERTAS ATIVAS</span>
+          </div>
+          <div className="grid grid-cols-1 gap-8 pb-2">
+            {promoProducts.map((product, idx) => (
+              <ProductCard key={`promo-${product.id}`} product={product} index={idx} />
+            ))}
+          </div>
+        </section>
+      )}
 
        {/* Combos */}
        <section className="mb-6">

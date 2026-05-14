@@ -16,6 +16,10 @@ interface UserProfile {
   lalamoveConnected?: boolean;
   lalamoveApiKey?: string;
   lalamoveSecret?: string;
+  imgbbApiKey?: string;
+  appName?: string;
+  appLogo?: string;
+  points?: number;
 }
 
 interface AppContextType {
@@ -31,6 +35,7 @@ interface AppContextType {
   loading: boolean;
   userRole: 'admin' | 'customer' | null;
   setUserRole: (role: 'admin' | 'customer' | null) => void;
+  setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -72,6 +77,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 if (profileSnap.exists()) {
           const profileData = profileSnap.data() as UserProfile;
           
+          // Fetch secrets if they exist (only the owner can read their own secrets)
+          const secretsRef = doc(db, 'profiles', currentUser.uid, 'private', 'secrets');
+          const secretsSnap = await getDoc(secretsRef).catch(() => null);
+          const secretsData = secretsSnap?.exists() ? secretsSnap.data() : {};
+
           // Check for admin status via 'admins' collection
           const adminRef = doc(db, 'admins', currentUser.uid);
           let adminSnap;
@@ -94,6 +104,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           const updatedProfile: UserProfile = {
             ...profileData,
+            ...secretsData,
             isAdmin: isActuallyAdmin
           };
           
@@ -211,7 +222,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       profile,
       loading,
       userRole,
-      setUserRole
+      setUserRole,
+      setProfile
     }}>
       {children}
     </AppContext.Provider>

@@ -60,9 +60,14 @@ export interface Order {
   lalamoveStatus?: string;
   lalamoveDriver?: string;
   lalamoveShareLink?: string;
+  imgbbApiKey?: string;
+  points?: number;
   createdAt: string;
   orderNumber?: string;
   paymentApproved?: boolean;
   paymentStatus?: 'pending' | 'approved' | 'rejected' | 'pending_whatsapp';
   paymentMethod?: 'online' | 'whatsapp';
+  pointsEarned?: number;
+  pointsUsed?: number;
+  pointsDiscount?: number;
 }

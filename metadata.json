@@ -1,6 +1,6 @@
 {
   "name": "Remix: Sorveteria Nuvê",
-  "description": "Uma experiência premium de sorvetes artesanais com pedidos integrados ao WhatsApp e um dashboard administrativo SaaS para gestão completa.",
+  "description": "App de delivery premium white-label com gestão dinâmica de marca (logo e nome), pedidos integrados com foco em aprovação de pagamento e dashboard administrativo completo.",
   "requestFramePermissions": ["camera", "geolocation"],
   "majorCapabilities": []
 }

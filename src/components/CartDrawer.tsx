@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, X, Trash2, Plus, Minus, ArrowRight, MessageCircle, CreditCard, Loader2, User as UserIcon, MapPin, Store } from 'lucide-react';
+import { ShoppingBag, X, Trash2, Plus, Minus, ArrowRight, MessageCircle, CreditCard, Loader2, User as UserIcon, MapPin, Store, Gift } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useState, useEffect } from 'react';
 import { WHATSAPP_PHONE } from '../constants';
@@ -16,7 +16,14 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
   const [address, setAddress] = useState('');
   const [isMPAvailable, setIsMPAvailable] = useState(false);
+  const [usePoints, setUsePoints] = useState(false);
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+
+  const pointsToCash = (profile?.points || 0) / 10;
+  const maxDiscount = total * 0.5;
+  const pointsDiscount = Math.min(pointsToCash, maxDiscount);
+  const finalTotal = usePoints ? total - pointsDiscount : total;
+  const pointsToEarn = Math.floor(finalTotal);
 
   useEffect(() => {
     const checkMP = async () => {
@@ -41,7 +48,11 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         customerName: getCustomerName(),
         customerEmail: authUser?.email || '',
         items: cart,
-        total: total,
+        total: finalTotal,
+        subtotal: total,
+        pointsUsed: usePoints ? Math.min(profile?.points || 0, Math.floor(pointsDiscount * 10)) : 0,
+        pointsDiscount: usePoints ? pointsDiscount : 0,
+        pointsEarned: pointsToEarn,
         deliveryType: deliveryType,
         address: deliveryType === 'delivery' ? address : 'Retirada na Loja',
         status: 'pending',
@@ -178,6 +189,38 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
 
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-8 pb-32">
               <div className="flex flex-col gap-6">
+                {profile && (profile.points || 0) >= 10 && (
+                   <div className="glass rounded-[2rem] p-6 border-primary/20 bg-primary/5">
+                      <div className="flex items-center justify-between mb-4">
+                         <div className="flex items-center gap-3">
+                            <Gift className="w-5 h-5 text-primary" />
+                            <div>
+                               <h4 className="text-sm font-bold text-white">Resgatar Pontos</h4>
+                               <p className="text-[10px] text-white/40 uppercase font-black tracking-widest leading-none mt-1">Saldo: {profile.points} pontos</p>
+                            </div>
+                         </div>
+                         <button 
+                           onClick={() => setUsePoints(!usePoints)}
+                           className={cn(
+                             "w-12 h-6 rounded-full transition-all relative flex items-center px-1 border border-white/5",
+                             usePoints ? "bg-primary" : "bg-white/5"
+                           )}
+                         >
+                            <div className={cn(
+                              "w-4 h-4 bg-white rounded-full shadow-lg transition-transform",
+                              usePoints ? "translate-x-6" : "translate-x-0"
+                            )} />
+                         </button>
+                      </div>
+                      {usePoints && (
+                        <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                           <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Desconto Aplicado</span>
+                           <span className="text-xs font-black text-primary uppercase tracking-widest">- R$ {pointsDiscount.toFixed(2)}</span>
+                        </div>
+                      )}
+                   </div>
+                )}
+
                 {cart.length > 0 ? (
                   cart.map((item) => (
                     <div key={item.cartItemId} className="flex gap-4">
@@ -300,8 +343,14 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
               )}
               
               <div className="flex items-end justify-between mb-4">
-                <span className="text-white/40 font-black uppercase tracking-[0.2em] text-[10px] pb-1">Total do Pedido</span>
-                <span className="text-3xl font-black tracking-tighter text-primary leading-none">R$ {(total || 0).toFixed(2)}</span>
+                <div className="flex flex-col gap-1">
+                   <span className="text-white/40 font-black uppercase tracking-[0.2em] text-[8px]">Ganhando {pointsToEarn} pontos</span>
+                   <span className="text-white/40 font-black uppercase tracking-[0.2em] text-[10px]">Total do Pedido</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  {usePoints && <span className="text-xs text-white/40 line-through">R$ {total.toFixed(2)}</span>}
+                  <span className="text-3xl font-black tracking-tighter text-primary leading-none">R$ {(finalTotal || 0).toFixed(2)}</span>
+                </div>
               </div>
               
               <div className="grid grid-cols-1 gap-2">

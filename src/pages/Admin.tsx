@@ -13,10 +13,11 @@ import {
   orderBy,
   updateDoc,
   setDoc,
-  limit
+  limit,
+  where
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage, handleFirestoreError, OperationType } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
+import { db, storage, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Product, Transaction, PaymentMethod, Order } from '../types';
 import { PRODUCTS } from '../constants';
 import { useApp } from '../context/AppContext';
@@ -54,7 +55,8 @@ import {
   AlertCircle,
   Volume2,
   Sparkles,
-  Share2
+  Share2,
+  Zap
 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { 
@@ -125,7 +127,7 @@ export default function Admin() {
       }
       setShowPromoModal(false);
       setEditingPromo(null);
-      setPromoForm({ title: '', description: '', discount: '', image: '', expiresAt: '', isActive: true, code: '' });
+      setPromoForm({ title: '', description: '', price: '', discount: '', image: '', expiresAt: '', isActive: true, code: '' });
       fetchPromotions();
     } catch (e) {
       handleFirestoreError(e, OperationType.WRITE, 'promotions');
@@ -193,6 +195,7 @@ export default function Admin() {
   const [promoForm, setPromoForm] = useState({
     title: '',
     description: '',
+    price: '',
     discount: '',
     image: '',
     expiresAt: '',
@@ -257,14 +260,24 @@ export default function Admin() {
              const blob = await res.blob();
              const file = new File([blob], `promocao_${promo.id}.png`, { type: 'image/png' });
 
-             const appUrl = window.location.origin;
+             const appUrl = "https://app-sorveteria-nuve.vercel.app/";
              const textToShare = `*${promo.title}*\n${promo.discount}\n\n${promo.description}\n\n👉 Peça agora: ${appUrl}`;
 
-             if (navigator.canShare && navigator.canShare({ files: [file] })) {
+             const filesToShare = [file];
+             if (promo.image && promo.image.startsWith('http')) {
+               try {
+                 const imgRes = await fetch(promo.image);
+                 const imgBlob = await imgRes.blob();
+                 const imgFile = new File([imgBlob], 'foto_produto.png', { type: imgBlob.type });
+                 filesToShare.push(imgFile);
+               } catch (e) {}
+             }
+
+             if (navigator.canShare && navigator.canShare({ files: filesToShare })) {
                 await navigator.share({
                   title: promo.title,
                   text: textToShare,
-                  files: [file]
+                  files: filesToShare
                 });
              } else {
                 // Fallback: download image and open WhatsApp
@@ -273,7 +286,7 @@ export default function Admin() {
                 a.download = `promocao_${promo.id}.png`;
                 a.click();
                 
-                const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textToShare + " (Imagem salva nos downloads)")}`;
+                const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textToShare)}`;
                 window.open(waUrl, '_blank');
              }
           } catch(e) {
@@ -357,10 +370,16 @@ export default function Admin() {
     const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
       const allOrdersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
       
-      // Filter orders: only show WhatsApp orders or approved online payments
-      const ordersData = allOrdersData.filter(
-        o => o.paymentMethod === 'whatsapp' || o.paymentApproved || o.paymentStatus === 'approved'
-      );
+      // Filter orders: Hide abandoned carts/unpaid online orders
+      // Only show approved online payments OR manual payment methods (WhatsApp, Cash, Pix on delivery)
+      const ordersData = allOrdersData.filter(o => {
+        // Online payments must be approved
+        if (o.paymentMethod === 'online') {
+          return o.paymentStatus === 'approved' || o.paymentApproved;
+        }
+        // Manual/Delivery methods always show so manager can handle them
+        return true;
+      });
       
       setOrders(ordersData);
 
@@ -384,7 +403,34 @@ export default function Admin() {
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
-      await updateDoc(doc(db, 'orders', orderId), { status: newStatus });
+      const orderRef = doc(db, 'orders', orderId);
+      
+      // Get current order data to handle points
+      const ordersSnap = await getDocs(query(collection(db, 'orders'), where('__name__', '==', orderId), limit(1)));
+      const orderData = !ordersSnap.empty ? ordersSnap.docs[0].data() as Order : null;
+
+      await updateDoc(orderRef, { status: newStatus });
+
+      if (newStatus === 'completed' && orderData?.userId) {
+        // Award/Deduct points
+        const userRef = doc(db, 'profiles', orderData.userId);
+        const usersSnap = await getDocs(query(collection(db, 'profiles'), where('__name__', '==', orderData.userId), limit(1)));
+        
+        if (!usersSnap.empty) {
+          const userData = usersSnap.docs[0].data();
+          const currentPoints = userData.points || 0;
+          const pointsEarned = orderData.pointsEarned || 0;
+          const pointsUsed = orderData.pointsUsed || 0;
+          
+          // Calculate new total
+          const newPoints = currentPoints + pointsEarned - pointsUsed;
+          
+          await updateDoc(userRef, { 
+            points: Math.max(0, newPoints),
+            updatedAt: new Date().toISOString()
+          });
+        }
+      }
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `orders/${orderId}`);
     }
@@ -498,14 +544,91 @@ export default function Admin() {
     }
   };
 
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   const uploadToFirebase = async (file: File, path: string): Promise<string> => {
+    if (!auth.currentUser) {
+      throw new Error("Você precisa estar logado para fazer upload de imagens.");
+    }
+
+    // Try ImgBB if configured (completely free and bypasses Firebase Storage setup)
+    if (profile?.imgbbApiKey) {
+      try {
+        console.log("Using ImgBB for upload...");
+        const formData = new FormData();
+        formData.append('image', file);
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${profile.imgbbApiKey}`, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.success) {
+          return data.data.url;
+        }
+        console.warn("ImgBB upload failed, falling back to Firebase:", data.error);
+      } catch (err) {
+        console.warn("ImgBB error, falling back to Firebase:", err);
+      }
+    }
+
     if (file.size > 25 * 1024 * 1024) throw new Error("Imagem muito grande (máx 25MB)");
     
     const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
     const storageRef = ref(storage, `${path}/${fileName}`);
+    setUploadProgress(0);
     
-    const snapshot = await uploadBytes(storageRef, file);
-    return await getDownloadURL(snapshot.ref);
+    console.log(`Starting upload to ${path}/${fileName}...`);
+    return new Promise((resolve, reject) => {
+      try {
+        const uploadTask = uploadBytesResumable(storageRef, file);
+        console.log("Upload task created.");
+
+        const timeout = setTimeout(() => {
+          uploadTask.cancel();
+          const errorMsg = "O upload demorou muito (tempo esgotado). Isso geralmente acontece se o Firebase Storage não foi ativado ou se as regras de segurança estão bloqueando. Certifique-se de ter habilitado o Storage no Console do Firebase (aba 'Storage' -> 'Começar').";
+          console.error(errorMsg);
+          reject(new Error(errorMsg));
+        }, 60000);
+
+        uploadTask.on('state_changed', 
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log(`Upload progress: ${Math.round(progress)}%`);
+            setUploadProgress(progress);
+          }, 
+          (error: any) => {
+            clearTimeout(timeout);
+            console.error("Firebase Storage Error:", error);
+            if (error.code === 'storage/unauthorized') {
+              reject(new Error("Sem permissão para fazer upload (Erro 403). Você precisa habilitar e configurar as 'Storage Rules' no Console do Firebase para permitir uploads."));
+            } else if (error.code === 'storage/canceled') {
+              reject(new Error("Upload cancelado ou tempo esgotado."));
+            } else if (error.code === 'storage/retry-limit-exceeded') {
+               reject(new Error("Erro de rede: limite de tentativas excedido. Verifique sua conexão."));
+            } else if (error.code === 'storage/project-not-found' || error.code === 'storage/bucket-not-found') {
+               reject(new Error("Ops! O bucket do Firebase Storage não foi encontrado. Verifique a configuração do projeto."));
+            } else {
+              reject(new Error(`Erro no Firebase Storage (${error.code}): ${error.message}`));
+            }
+          }, 
+          async () => {
+            clearTimeout(timeout);
+            console.log("Upload complete, getting download URL...");
+            try {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              console.log("Download URL obtained:", downloadURL);
+              resolve(downloadURL);
+            } catch (e: any) {
+              console.error("Error getting download URL:", e);
+              reject(new Error("Erro ao obter URL da imagem após o upload: " + e.message));
+            }
+          }
+        );
+      } catch (e: any) {
+        console.error("Synchronous error during upload initiation:", e);
+        reject(e);
+      }
+    });
   };
 
   const handleImageUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -755,10 +878,18 @@ export default function Admin() {
                 <button onClick={() => navigate('/')} className="p-2 glass rounded-xl">
                   <Plus className="w-5 h-5 rotate-45" />
                 </button>
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <ChefHat className="w-5 h-5 text-dark" />
+                <div className="w-10 h-10 glass rounded-xl flex items-center justify-center border border-white/5 overflow-hidden p-1.5">
+                  {profile?.appLogo ? (
+                    <img src={profile.appLogo} className="w-full h-full object-contain" alt="" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full bg-primary/20 rounded-lg flex items-center justify-center">
+                      <ChefHat className="w-5 h-5 text-primary" />
+                    </div>
+                  )}
                 </div>
-                <h2 className="text-xl font-serif italic font-bold">Nuvê Admin</h2>
+                <h2 className="text-xl font-serif italic font-bold">
+                  {profile?.appName || 'Nuvê'} Admin
+                </h2>
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={fetchProducts} className="p-2 glass rounded-xl active:scale-95 transition-transform">
@@ -1244,7 +1375,7 @@ export default function Admin() {
                        <button 
                          onClick={() => {
                            setEditingPromo(null);
-                           setPromoForm({ title: '', description: '', discount: '', image: '', expiresAt: '', isActive: true, code: '' });
+                           setPromoForm({ title: '', description: '', price: '', discount: '', image: '', expiresAt: '', isActive: true, code: '' });
                            setShowPromoModal(true);
                          }}
                          className="bg-secondary text-white px-8 py-4 rounded-[2rem] flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-[0.15em] shadow-xl active:scale-95 transition-all w-full sm:w-auto"
@@ -1257,8 +1388,12 @@ export default function Admin() {
                        {promotions.map((promo) => (
                          <div key={promo.id} className="glass rounded-[3rem] p-8 border-white/5 group relative overflow-hidden">
                             <div className="flex justify-between items-start mb-6">
-                               <div className="w-14 h-14 bg-secondary/10 rounded-2xl flex items-center justify-center text-secondary">
-                                  <Sparkles className="w-6 h-6" />
+                               <div className="w-20 h-20 bg-secondary/10 rounded-2xl flex items-center justify-center text-secondary overflow-hidden border border-white/5 relative shadow-xl">
+                                  {promo.image ? (
+                                    <img src={promo.image} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                                  ) : (
+                                    <Sparkles className="w-8 h-8 opacity-20" />
+                                  )}
                                </div>
                                <div className="flex gap-2">
                                   <button 
@@ -1269,7 +1404,20 @@ export default function Admin() {
                                   >
                                      <Share2 className="w-4 h-4" /> {isGeneratingShare && sharingPromo?.id === promo.id ? 'Gerando...' : 'Status'}
                                   </button>
-                                  <button onClick={() => { setEditingPromo(promo); setPromoForm(promo); setShowPromoModal(true); }} className="p-3 glass rounded-xl text-white/20 hover:text-white transition-colors">
+                                  <button onClick={() => { 
+                                    setEditingPromo(promo); 
+                                    setPromoForm({
+                                      title: promo.title || '',
+                                      description: promo.description || '',
+                                      price: promo.price || '',
+                                      discount: promo.discount || '',
+                                      image: promo.image || '',
+                                      expiresAt: promo.expiresAt || '',
+                                      isActive: promo.isActive ?? true,
+                                      code: promo.code || ''
+                                    }); 
+                                    setShowPromoModal(true); 
+                                  }} className="p-3 glass rounded-xl text-white/20 hover:text-white transition-colors">
                                      <Edit className="w-4 h-4" />
                                   </button>
                                   <button onClick={() => deletePromo(promo.id)} className="p-3 glass rounded-xl text-white/20 hover:text-red-400 transition-colors">
@@ -1278,7 +1426,15 @@ export default function Admin() {
                                </div>
                             </div>
                             <h3 className="text-2xl font-serif italic font-bold mb-2">{promo.title}</h3>
-                            <p className="text-3xl font-black text-secondary mb-4">{promo.discount}</p>
+                            <div className="flex items-center gap-3 mb-4">
+                              <p className="text-3xl font-black text-secondary">{promo.discount}</p>
+                              {promo.price && (
+                                <>
+                                  <span className="w-1.5 h-1.5 bg-white/10 rounded-full" />
+                                  <p className="text-2xl font-bold text-white/60">R$ {parseFloat(promo.price).toFixed(2).replace('.', ',')}</p>
+                                </>
+                              )}
+                            </div>
                             <p className="text-xs text-white/40 leading-relaxed mb-6">{promo.description}</p>
                             
                             <div className="flex items-center justify-between p-4 glass-dark rounded-2xl border-white/5 bg-white/5">
@@ -1604,6 +1760,10 @@ export default function Admin() {
                     <input type="text" value={promoForm.discount} onChange={e => setPromoForm({...promoForm, discount: e.target.value})} className="w-full glass bg-white/5 p-4 rounded-2xl outline-none text-sm" placeholder="Ex: 20% OFF ou Compre 1 Leve 2" />
                   </div>
                   <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Preço de Venda (R$)</label>
+                    <input type="number" value={promoForm.price} onChange={e => setPromoForm({...promoForm, price: e.target.value})} className="w-full glass bg-white/5 p-4 rounded-2xl outline-none text-sm" placeholder="0,00" />
+                  </div>
+                  <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase tracking-widest text-white/20 ml-2">Cupom (Opcional)</label>
                     <input type="text" value={promoForm.code} onChange={e => setPromoForm({...promoForm, code: e.target.value.toUpperCase()})} className="w-full glass bg-white/5 p-4 rounded-2xl outline-none text-sm font-mono" placeholder="VERAO20" />
                   </div>
@@ -1612,7 +1772,7 @@ export default function Admin() {
                      <div className="flex gap-4 items-center p-4 glass-dark rounded-2xl bg-white/5 border border-white/5">
                         <div className="w-16 h-16 rounded-xl overflow-hidden glass border-white/10 flex-shrink-0 bg-white/5 relative">
                            {promoForm.image ? (
-                              <img src={promoForm.image} className="w-full h-full object-cover" alt="" />
+                              <img src={promoForm.image} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                            ) : (
                               <div className="w-full h-full flex items-center justify-center text-white/10 italic text-[10px]"><Plus className="w-4 h-4 opacity-20" /></div>
                            )}
@@ -1622,17 +1782,39 @@ export default function Admin() {
                              </div>
                            )}
                         </div>
-                        <div className="flex-1 relative h-12">
-                           <label className="absolute inset-0 w-full glass border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">
+                        <div className="flex-1 space-y-3">
+                           <div className="relative h-12">
+                              <label className="absolute inset-0 w-full glass border-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">
+                                 <input 
+                                   type="file" 
+                                   accept="image/*"
+                                   onChange={handlePromoImageUpload}
+                                   disabled={isUploading}
+                                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                 />
+                                 <span className="relative z-0">
+                                   {isUploading ? `Enviando (${Math.round(uploadProgress)}%)...` : 'Carregar Banner'}
+                                 </span>
+                              </label>
+                           </div>
+                           <div className="flex gap-2">
                               <input 
-                                type="file" 
-                                accept="image/*"
-                                onChange={handlePromoImageUpload}
-                                disabled={isUploading}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                type="text" 
+                                value={promoForm.image}
+                                onChange={e => setPromoForm({...promoForm, image: e.target.value})}
+                                className="flex-1 glass bg-white/5 px-4 py-2 rounded-xl outline-none text-[10px] font-medium placeholder:text-white/10" 
+                                placeholder="Ou cole a URL do banner aqui" 
                               />
-                              <span className="relative z-0">{isUploading ? 'Enviando...' : 'Carregar Banner'}</span>
-                           </label>
+                              {isUploading && (
+                                <button 
+                                  onClick={() => setIsUploading(false)}
+                                  className="p-2 glass rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
+                                  title="Cancelar upload travado"
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                </button>
+                              )}
+                           </div>
                         </div>
                      </div>
                   </div>
@@ -1853,7 +2035,7 @@ export default function Admin() {
                         <div className="w-32 h-32 rounded-3xl overflow-hidden glass border-white/10 flex-shrink-0 bg-white/5 relative group">
                            {productForm.image ? (
                               <>
-                                <img src={productForm.image} className="w-full h-full object-cover" alt="Preview" />
+                                <img src={productForm.image} className="w-full h-full object-cover" alt="Preview" referrerPolicy="no-referrer" />
                                 <div className="absolute inset-x-0 bottom-0 bg-dark/80 backdrop-blur-sm py-2 text-center opacity-0 group-hover:opacity-100 transition-opacity">
                                   <button 
                                     onClick={() => setProductForm(prev => ({ ...prev, image: '' }))}
@@ -1876,32 +2058,50 @@ export default function Admin() {
                              </div>
                            )}
                         </div>
-                        <div className="flex-1 w-full space-y-4">
-                           <div className="relative h-14 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center group hover:border-primary/50 transition-all cursor-pointer">
-                              <input 
-                                type="file" 
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                disabled={isUploading}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-wait"
-                              />
-                              <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 group-hover:text-primary transition-colors relative z-0 pointer-events-none">
-                                 {isUploading ? (
-                                   <>Enviando para Nuvem...</>
-                                 ) : (
-                                   <><PlusCircle className="w-4 h-4" /> Selecionar do Celular</>
-                                 )}
-                              </div>
-                           </div>
-                           <p className="text-[9px] text-white/20 uppercase font-bold tracking-widest ml-2">Ou cole uma URL abaixo:</p>
-                           <input 
-                             type="text" 
-                             placeholder="Ex: https://..."
-                             value={productForm.image}
-                             onChange={(e) => setProductForm(prev => ({ ...prev, image: e.target.value }))}
-                             className="w-full glass bg-white/5 px-5 py-4 rounded-2xl border-white/5 outline-none text-xs font-bold placeholder:text-white/10 focus:border-primary/30 transition-all"
-                           />
-                        </div>
+                         <div className="flex-1 w-full space-y-4">
+                            <div className="relative h-14 bg-white/5 border border-dashed border-white/10 rounded-2xl flex items-center justify-center group hover:border-primary/50 transition-all cursor-pointer">
+                               <input 
+                                 type="file" 
+                                 accept="image/*"
+                                 onChange={handleImageUpload}
+                                 disabled={isUploading}
+                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-wait"
+                               />
+                               <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 group-hover:text-primary transition-colors relative z-0 pointer-events-none">
+                                  {isUploading ? (
+                                    <div className="flex flex-col items-center gap-1">
+                                      <span>Enviando ({Math.round(uploadProgress)}%)</span>
+                                      <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+                                        <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <><PlusCircle className="w-4 h-4" /> Selecionar do Celular</>
+                                  )}
+                               </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                               <div className="flex-1">
+                                  <p className="text-[9px] text-white/20 uppercase font-bold tracking-widest ml-2 mb-1">Ou cole uma URL abaixo:</p>
+                                  <input 
+                                    type="text" 
+                                    placeholder="Ex: https://..."
+                                    value={productForm.image}
+                                    onChange={(e) => setProductForm(prev => ({ ...prev, image: e.target.value }))}
+                                    className="w-full glass bg-white/5 px-5 py-4 rounded-2xl border-white/5 outline-none text-xs font-bold placeholder:text-white/10 focus:border-primary/30 transition-all"
+                                  />
+                               </div>
+                               {isUploading && (
+                                 <button 
+                                   onClick={() => setIsUploading(false)}
+                                   className="p-4 glass rounded-2xl text-red-400 hover:bg-red-500/10 transition-colors self-end h-[52px]"
+                                   title="Cancelar upload travado"
+                                 >
+                                    <RefreshCw className="w-5 h-5 flex-shrink-0" />
+                                 </button>
+                               )}
+                            </div>
+                         </div>
                      </div>
                   </div>
 
@@ -2076,11 +2276,14 @@ export default function Admin() {
             <>
               {/* background */}
               {sharingPromo.image ? (
-                <img src={sharingPromo.image} className="absolute inset-0 w-full h-full object-cover opacity-60" crossOrigin="anonymous" />
+                <>
+                  <img src={sharingPromo.image} className="absolute inset-0 w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
+                  <div className="absolute inset-0 bg-black/60" />
+                </>
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-[#00f2ff]/40 to-[#ff00d4]/40" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/50 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent" />
               
               <div className="relative z-10 flex flex-col items-center justify-center h-full p-20 text-center">
                 <div className="bg-white/10 backdrop-blur-3xl p-16 rounded-[4rem] border border-white/20 w-full max-w-[800px] shadow-2xl">
@@ -2098,14 +2301,18 @@ export default function Admin() {
                     </div>
                   )}
                   
-                  <div className="mt-16 pt-16 border-t border-white/20 flex flex-col items-center gap-6">
-                     <p className="text-4xl font-bold text-white/70">Peça agora no nosso site!</p>
-                     <p className="text-5xl font-black text-[#00f2ff] tracking-widest">{window.location.host}</p>
+                  <div className="mt-10 pt-10 border-t border-white/20 flex flex-col items-center gap-6">
+                     {sharingPromo.image && (
+                       <div className="w-[300px] h-[300px] rounded-[3rem] overflow-hidden border-4 border-white/20 shadow-2xl">
+                         <img src={sharingPromo.image} className="w-full h-full object-cover" crossOrigin="anonymous" referrerPolicy="no-referrer" />
+                       </div>
+                     )}
+                     <p className="text-4xl font-bold text-white/40 tracking-[0.2em] uppercase mt-4">Peça pelo App</p>
                   </div>
                 </div>
               </div>
               <div className="absolute bottom-20 left-0 right-0 flex justify-center opacity-40">
-                 <p className="text-2xl font-black text-white tracking-[0.5em] uppercase">Sorveteria Nuvê</p>
+                 <p className="text-2xl font-black text-white tracking-[0.5em] uppercase">{profile?.appName || 'Sorveteria Nuvê'}</p>
               </div>
             </>
           )}

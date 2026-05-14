@@ -4,7 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, query, where, getDocs, limit, doc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, limit, doc, updateDoc, setDoc } from 'firebase/firestore';
 import dotenv from "dotenv";
 import firebaseConfig from './firebase-applet-config.json';
 
@@ -98,12 +98,21 @@ async function startServer() {
 
       // Update Firestore
       const profileRef = doc(db, 'profiles', userId as string);
+      const secretsRef = doc(db, 'profiles', userId as string, 'private', 'secrets');
+      
+      // Update basic status on profile
       await updateDoc(profileRef, {
         mpConnected: true,
+        updatedAt: new Date().toISOString()
+      });
+
+      // Save sensitive tokens in the private subcollection
+      // Using setDoc with merge: true to avoid errors if the doc doesn't exist yet
+      await setDoc(secretsRef, {
         mpAccessToken: access_token,
         mpPublicKey: public_key,
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
 
       res.send(`
         <html>
@@ -145,9 +154,21 @@ async function startServer() {
         const querySnapshot = await getDocs(q);
         
         if (!querySnapshot.empty) {
+          const profileId = querySnapshot.docs[0].id;
           const profileData = querySnapshot.docs[0].data();
-          accessToken = profileData.mpAccessToken;
-          console.log("Using Mercado Pago credentials from manager profile:", querySnapshot.docs[0].id);
+          
+          // Try to get from subcollection first (new way)
+          const secretsRef = doc(db, 'profiles', profileId, 'private', 'secrets');
+          const secretsSnap = await getDocs(query(collection(db, 'profiles', profileId, 'private'), limit(1)));
+          
+          if (!secretsSnap.empty) {
+            accessToken = secretsSnap.docs[0].data().mpAccessToken;
+          } else {
+            // Fallback to main doc (old way)
+            accessToken = profileData.mpAccessToken;
+          }
+          
+          console.log("Using Mercado Pago credentials from manager profile:", profileId);
         }
       }
 
@@ -206,9 +227,21 @@ async function startServer() {
       let apiSecret = "";
 
       if (!querySnapshot.empty) {
+        const profileId = querySnapshot.docs[0].id;
         const profileData = querySnapshot.docs[0].data();
-        apiKey = profileData.lalamoveApiKey;
-        apiSecret = profileData.lalamoveSecret;
+        
+        // Try to get from subcollection first
+        const secretsSnap = await getDocs(query(collection(db, 'profiles', profileId, 'private'), limit(1)));
+        
+        if (!secretsSnap.empty) {
+          const secretsData = secretsSnap.docs[0].data();
+          apiKey = secretsData.lalamoveApiKey;
+          apiSecret = secretsData.lalamoveSecret;
+        } else {
+          // Fallback
+          apiKey = profileData.lalamoveApiKey;
+          apiSecret = profileData.lalamoveSecret;
+        }
       }
 
       if (!apiKey || !apiSecret) {
@@ -239,9 +272,21 @@ async function startServer() {
       let apiSecret = "";
 
       if (!querySnapshot.empty) {
+        const profileId = querySnapshot.docs[0].id;
         const profileData = querySnapshot.docs[0].data();
-        apiKey = profileData.lalamoveApiKey;
-        apiSecret = profileData.lalamoveSecret;
+        
+        // Try to get from subcollection first
+        const secretsSnap = await getDocs(query(collection(db, 'profiles', profileId, 'private'), limit(1)));
+        
+        if (!secretsSnap.empty) {
+          const secretsData = secretsSnap.docs[0].data();
+          apiKey = secretsData.lalamoveApiKey;
+          apiSecret = secretsData.lalamoveSecret;
+        } else {
+          // Fallback
+          apiKey = profileData.lalamoveApiKey;
+          apiSecret = profileData.lalamoveSecret;
+        }
       }
 
       const { orderId, quotationId } = req.body;

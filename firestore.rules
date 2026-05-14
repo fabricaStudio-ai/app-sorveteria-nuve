@@ -70,10 +70,20 @@ service cloud.firestore {
     }
 
     match /profiles/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || isAdmin() || (isSignedIn() && resource.data.mpConnected == true);
+      allow list: if isSignedIn() && resource.data.mpConnected == true;
       allow create: if isOwner(userId) && isValidProfile(incoming());
-      allow update: if isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'photoURL', 'customerName', 'customerPhone', 'preferredRole', 'mpConnected', 'mpPublicKey', 'mpAccessToken']) || isAdmin();
+      allow update: if isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly([
+        'name', 'phone', 'photoURL', 'customerName', 'customerPhone', 
+        'preferredRole', 'mpConnected', 'mpPublicKey', 'mpAccessToken',
+        'lalamoveConnected', 'lalamoveApiKey', 'lalamoveSecret', 'imgbbApiKey'
+      ]) || isAdmin();
       allow delete: if isAdmin();
+
+      // Secrets subcollection for sensitive tokens
+      match /private/secrets {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
     }
 
     match /products/{productId} {

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, setDoc, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export default function Settings() {
@@ -27,20 +27,122 @@ export default function Settings() {
     secret: profile?.lalamoveSecret || ''
   });
   const [showLalamoveModal, setShowLalamoveModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [savingLalamove, setSavingLalamove] = useState(false);
+  const [profileName, setProfileName] = useState(profile?.name || '');
+
+  const [imgbbConfig, setImgbbConfig] = useState(profile?.imgbbApiKey || '');
+  const [appName, setAppName] = useState(profile?.appName || '');
+  const [appLogo, setAppLogo] = useState(profile?.appLogo || '');
+  const [showBrandingModal, setShowBrandingModal] = useState(false);
+  const [savingBranding, setSavingBranding] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      if (profile.name) setProfileName(profile.name);
+      setAppName(profile.appName || '');
+      setAppLogo(profile.appLogo || '');
+      setImgbbConfig(profile.imgbbApiKey || '');
+      setMpForm({
+        publicKey: profile.mpPublicKey || '',
+        accessToken: profile.mpAccessToken || ''
+      });
+      setLalamoveForm({
+        apiKey: profile.lalamoveApiKey || '',
+        secret: profile.lalamoveSecret || ''
+      });
+    }
+  }, [profile]);
+
+  const handleUpdateBranding = async () => {
+    if (!user) return;
+    setSavingBranding(true);
+    try {
+      const updateData = {
+        appName: appName,
+        appLogo: appLogo,
+        updatedAt: new Date().toISOString()
+      };
+      await updateDoc(doc(db, 'profiles', user.uid), updateData);
+      setProfile(prev => prev ? { ...prev, ...updateData } : null);
+      setShowBrandingModal(false);
+    } catch (e) {
+      console.error("Error saving branding:", e);
+    } finally {
+      setSavingBranding(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploadingLogo(true);
+    try {
+      const apiKey = profile?.imgbbApiKey;
+      if (!apiKey) {
+        alert("Por favor, configure a API Key do ImgBB em 'Armazenamento' primeiro.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setAppLogo(data.data.url);
+      } else {
+        throw new Error("Upload failed");
+      }
+    } catch (err) {
+      console.error("Error uploading logo:", err);
+      alert("Falha no upload do logo.");
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleUpdateName = async () => {
+    if (!user || !profileName) return;
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'profiles', user.uid), { name: profileName });
+      setProfile(prev => prev ? { ...prev, name: profileName } : null);
+      setShowProfileModal(false);
+    } catch (e) {
+      console.error("Error updating name:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleConnectLalamove = async () => {
     if (!user) return;
     setSavingLalamove(true);
     try {
       const profileRef = doc(db, 'profiles', user.uid);
+      const secretsRef = doc(db, 'profiles', user.uid, 'private', 'secrets');
+      
       const updateData = {
-        lalamoveApiKey: lalamoveForm.apiKey,
-        lalamoveSecret: lalamoveForm.secret,
         lalamoveConnected: !!(lalamoveForm.apiKey && lalamoveForm.secret)
       };
+      
+      const secretData = {
+        lalamoveApiKey: lalamoveForm.apiKey,
+        lalamoveSecret: lalamoveForm.secret,
+        updatedAt: new Date().toISOString()
+      };
+
       await updateDoc(profileRef, updateData);
-      setProfile(prev => prev ? { ...prev, ...updateData } : null);
+      await setDoc(secretsRef, secretData, { merge: true });
+      
+      setProfile(prev => prev ? { ...prev, ...updateData, ...secretData } : null);
       setShowLalamoveModal(false);
     } catch (e) {
       console.error("Error saving Lalamove config:", e);
@@ -100,13 +202,22 @@ export default function Settings() {
     setSaving(true);
     try {
       const profileRef = doc(db, 'profiles', user.uid);
+      const secretsRef = doc(db, 'profiles', user.uid, 'private', 'secrets');
+      
       const updateData = {
-        mpPublicKey: mpForm.publicKey,
-        mpAccessToken: mpForm.accessToken,
         mpConnected: !!(mpForm.publicKey && mpForm.accessToken)
       };
+      
+      const secretData = {
+        mpPublicKey: mpForm.publicKey,
+        mpAccessToken: mpForm.accessToken,
+        updatedAt: new Date().toISOString()
+      };
+
       await updateDoc(profileRef, updateData);
-      setProfile(prev => prev ? { ...prev, ...updateData } : null);
+      await setDoc(secretsRef, secretData, { merge: true });
+      
+      setProfile(prev => prev ? { ...prev, ...updateData, ...secretData } : null);
       setShowMPModal(false);
     } catch (e) {
       console.error("Error saving MP config:", e);
@@ -116,7 +227,8 @@ export default function Settings() {
   };
 
   const menuItems = [
-    { icon: User, label: 'Editar Perfil', detail: profile?.name || 'Usuário' },
+    { icon: User, label: 'Editar Perfil', detail: profile?.name || 'Usuário', onClick: () => setShowProfileModal(true) },
+    { icon: Zap, label: 'Identidade Visual', detail: profile?.appName || 'Padrão', onClick: () => setShowBrandingModal(true) },
     { icon: Bell, label: 'Notificações', detail: 'Ativadas' },
     { icon: Shield, label: 'Privacidade', detail: 'Seguro' },
   ];
@@ -141,7 +253,11 @@ export default function Settings() {
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 ml-4">Conta</h3>
           <div className="glass rounded-[2rem] overflow-hidden">
              {menuItems.map((item, i) => (
-               <button key={i} className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+               <button 
+                key={i} 
+                onClick={item.onClick}
+                className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
+               >
                  <div className="flex items-center gap-4">
                     <item.icon className="w-5 h-5 text-primary" />
                     <span className="font-bold text-sm">{item.label}</span>
@@ -241,24 +357,101 @@ export default function Settings() {
                     <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                     <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Conectado</span>
                   </div>
-                  <button 
-                    onClick={() => setShowLalamoveModal(true)}
-                    className="w-full py-4 glass border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-white/40"
-                  >
-                    Editar Chaves
-                  </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button 
+                      onClick={() => setShowLalamoveModal(true)}
+                      className="py-4 glass border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-white/40"
+                    >
+                      Editar Chaves
+                    </button>
+                    <a 
+                      href="https://developers.lalamove.com/" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="glass border-white/10 rounded-2xl flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-[#F37021]/50 hover:text-[#F37021] transition-all"
+                    >
+                      Portal <ExternalLink className="w-3 h-3 ml-1" />
+                    </a>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-6">
-                  <p className="text-sm text-white/40 leading-relaxed font-medium">Automatize suas entregas chamando entregadores Lalamove diretamente do painel de pedidos.</p>
-                  <button 
-                    onClick={() => setShowLalamoveModal(true)}
-                    className="w-full py-4 glass border-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#F37021] hover:bg-[#F37021]/10 transition-all border-[#F37021]/20"
-                  >
-                    Configurar Integração
-                  </button>
+                  <p className="text-sm text-white/40 leading-relaxed font-medium">Automatize suas entregas chamando entregadores Lalamove diretamente do painel de pedidos. (Requer API Key e Secret).</p>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => setShowLalamoveModal(true)}
+                      className="flex-1 py-4 glass border-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#F37021] hover:bg-[#F37021]/10 transition-all border-[#F37021]/20"
+                    >
+                      Configurar Integração
+                    </button>
+                    <a 
+                      href="https://developers.lalamove.com/" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="p-4 glass border-white/5 rounded-2xl flex items-center justify-center text-[#F37021]/60"
+                      title="Obter chaves Lalamove"
+                    >
+                      <ExternalLink className="w-5 h-5" />
+                    </a>
+                  </div>
                 </div>
               )}
+            </div>
+
+            {/* ImgBB Backup Section */}
+            <div className="glass rounded-[3rem] p-8 mt-4 border border-white/5 bg-gradient-to-br from-purple-500/5 to-transparent">
+               <div className="flex items-center gap-4 mb-4">
+                  <div className="w-10 h-10 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                     <CircleHelp className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <h4 className="font-bold">Armazenamento Grátis</h4>
+               </div>
+               <p className="text-xs text-white/40 leading-relaxed mb-4">
+                  Se o Firebase Storage falhar, você pode usar o **ImgBB** (gratuito) como alternativa para suas fotos.
+               </p>
+               
+               <div className="space-y-4">
+                  <div className="flex gap-2">
+                     <div className="relative flex-1">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                        <input 
+                          type="text"
+                          placeholder="API Key do ImgBB (Opcional)"
+                          value={imgbbConfig}
+                          onChange={(e) => setImgbbConfig(e.target.value)}
+                          className="w-full glass bg-white/5 py-4 pl-12 pr-4 rounded-2xl text-[10px] font-black tracking-widest focus:outline-none"
+                        />
+                     </div>
+                     <button 
+                       onClick={async () => {
+                         if (!user) return;
+                         setSaving(true);
+                         try {
+                           const secretsRef = doc(db, 'profiles', user.uid, 'private', 'secrets');
+                           await updateDoc(doc(db, 'profiles', user.uid), { mpConnected: !!profile?.mpConnected }); // Keep it on main
+                           await setDoc(secretsRef, { imgbbApiKey: imgbbConfig }, { merge: true });
+                           setProfile(prev => prev ? { ...prev, imgbbApiKey: imgbbConfig } : null);
+                         } catch (e) {
+                           console.error("Error saving ImgBB:", e);
+                         } finally {
+                           setSaving(false);
+                         }
+                       }}
+                       disabled={saving || imgbbConfig === profile?.imgbbApiKey}
+                       className="px-6 glass rounded-2xl text-[10px] font-black uppercase tracking-widest text-purple-400 hover:bg-purple-500/10 transition-all disabled:opacity-0"
+                     >
+                        Salvar
+                     </button>
+                  </div>
+                  <a 
+                    href="https://api.imgbb.com/" 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-[9px] text-purple-400 font-bold flex items-center gap-1 uppercase tracking-widest"
+                  >
+                    Obter Chave Grátis no ImgBB <ExternalLink className="w-3 h-3" />
+                  </a>
+               </div>
             </div>
           </section>
         )}
@@ -434,6 +627,23 @@ export default function Settings() {
                     />
                   </div>
                 </div>
+
+                <div className="p-5 bg-white/5 rounded-3xl border border-white/5 flex gap-4">
+                  <div className="w-10 h-10 rounded-full bg-[#F37021]/10 flex items-center justify-center shrink-0">
+                    <AlertCircle className="w-5 h-5 text-[#F37021]" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold leading-relaxed text-white/60">Obtenha suas chaves de API:</p>
+                    <a 
+                      href="https://developers.lalamove.com/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-[9px] text-[#F37021] hover:underline flex items-center gap-1 font-black uppercase tracking-widest"
+                    >
+                      Portal Developer Lalamove <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
               </div>
 
               <button 
@@ -447,6 +657,143 @@ export default function Settings() {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Profile Edit Modal */}
+      <AnimatePresence>
+        {showProfileModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+          >
+            <div className="absolute inset-0 bg-dark/95 backdrop-blur-2xl" onClick={() => setShowProfileModal(false)} />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md glass-dark p-8 rounded-[3rem] border border-white/5 space-y-8 overflow-hidden"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                    <User className="w-5 h-5 text-primary" />
+                  </div>
+                  <h2 className="text-xl font-serif italic font-bold">Editar Perfil</h2>
+                </div>
+                <button onClick={() => setShowProfileModal(false)} className="p-3 glass rounded-2xl">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-4">Nome de Exibição</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20" />
+                    <input 
+                      type="text" 
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      placeholder="Seu nome"
+                      className="w-full glass bg-white/5 py-4 pl-12 pr-4 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 ring-primary/50"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleUpdateName}
+                disabled={saving || !profileName}
+                className="w-full py-5 bg-primary text-dark rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:brightness-110 disabled:opacity-50 shadow-xl shadow-primary/20"
+              >
+                {saving ? 'Salvando...' : 'Salvar Alterações'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+       </AnimatePresence>
+
+       {/* Branding Selection Modal */}
+       <AnimatePresence>
+         {showBrandingModal && (
+           <motion.div
+             initial={{ opacity: 0 }}
+             animate={{ opacity: 1 }}
+             exit={{ opacity: 0 }}
+             className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+           >
+             <div className="absolute inset-0 bg-dark/95 backdrop-blur-2xl" onClick={() => setShowBrandingModal(false)} />
+             <motion.div
+               initial={{ scale: 0.9, opacity: 0, y: 20 }}
+               animate={{ scale: 1, opacity: 1, y: 0 }}
+               exit={{ scale: 0.9, opacity: 0, y: 20 }}
+               className="relative w-full max-w-md glass-dark p-8 rounded-[3rem] border border-white/5 space-y-8 overflow-hidden"
+             >
+               <div className="flex items-center justify-between">
+                 <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+                     <Zap className="w-5 h-5 text-primary" />
+                   </div>
+                   <h2 className="text-xl font-serif italic font-bold">Identidade Visual</h2>
+                 </div>
+                 <button onClick={() => setShowBrandingModal(false)} className="p-3 glass rounded-2xl">
+                   <X className="w-4 h-4" />
+                 </button>
+               </div>
+
+               <div className="space-y-6">
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-4">Nome da Loja</label>
+                   <input 
+                     type="text" 
+                     value={appName}
+                     onChange={(e) => setAppName(e.target.value)}
+                     placeholder="Ex: Sorveteria Nuvê"
+                     className="w-full glass bg-white/5 py-4 px-6 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 ring-primary/50"
+                   />
+                 </div>
+
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-4">Logo da Loja (URL ou Upload)</label>
+                   <div className="flex gap-2">
+                     <input 
+                       type="text" 
+                       value={appLogo}
+                       onChange={(e) => setAppLogo(e.target.value)}
+                       placeholder="https://..."
+                       className="flex-1 glass bg-white/5 py-4 px-6 rounded-2xl text-sm font-medium focus:outline-none"
+                     />
+                     <label className="p-4 glass rounded-2xl cursor-pointer hover:bg-white/10 transition-all flex items-center justify-center">
+                       {uploadingLogo ? (
+                         <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                       ) : (
+                         <Plus className="w-5 h-5 text-primary" />
+                       )}
+                       <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploadingLogo} />
+                     </label>
+                   </div>
+                   {appLogo && (
+                     <div className="mt-4 flex justify-center">
+                        <div className="w-20 h-20 glass rounded-2xl p-2 border border-white/5 overflow-hidden">
+                           <img src={appLogo} className="w-full h-full object-contain" alt="Preview" referrerPolicy="no-referrer" />
+                        </div>
+                     </div>
+                   )}
+                 </div>
+               </div>
+
+               <button 
+                 onClick={handleUpdateBranding}
+                 disabled={savingBranding || !appName}
+                 className="w-full py-5 bg-primary text-dark rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:brightness-110 disabled:opacity-50 shadow-xl shadow-primary/20"
+               >
+                 {savingBranding ? 'Salvando...' : 'Atualizar Identidade'}
+               </button>
+             </motion.div>
+           </motion.div>
+         )}
+       </AnimatePresence>
     </motion.div>
   );
 }
+

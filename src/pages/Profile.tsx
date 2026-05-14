@@ -7,7 +7,9 @@ import {
   Mail, 
   Settings, 
   ChevronRight,
-  Layers
+  Layers,
+  Star,
+  Gift
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { logout } from '../lib/firebase';
