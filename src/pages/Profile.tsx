@@ -9,7 +9,8 @@ import {
   ChevronRight,
   Layers,
   Star,
-  Gift
+  Gift,
+  Smartphone
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { logout } from '../lib/firebase';
@@ -116,6 +117,22 @@ export default function Profile() {
                  <span className="font-bold text-sm tracking-tight">Configurações</span>
               </div>
               <ChevronRight className="w-5 h-5 text-white/20" />
+           </button>
+
+           <button 
+             onClick={() => {
+               window.dispatchEvent(new Event('force-show-install-prompt'));
+             }}
+             className="w-full glass rounded-2xl p-5 flex items-center justify-between group hover:border-primary/50 transition-all relative overflow-hidden"
+           >
+              <div className="absolute inset-0 bg-primary/5 group-hover:bg-primary/10 transition-colors" />
+              <div className="flex items-center gap-4 text-white relative z-10">
+                 <div className="p-3 bg-primary/20 text-primary rounded-xl">
+                    <Smartphone className="w-5 h-5" />
+                 </div>
+                 <span className="font-bold text-sm tracking-tight group-hover:text-primary transition-colors">Baixar App</span>
+              </div>
+              <ChevronRight className="w-5 h-5 text-white/20 relative z-10" />
            </button>
 
            <button 

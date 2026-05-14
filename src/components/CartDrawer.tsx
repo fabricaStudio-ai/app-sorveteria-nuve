@@ -359,14 +359,14 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   disabled={cart.length === 0 || isProcessing}
                   onClick={handleOnlinePayment}
                   className={cn(
-                    "w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50",
-                    "bg-[#00c853] text-white shadow-[0_15px_30px_rgba(0,200,83,0.2)] hover:brightness-110"
+                    "w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] flex items-center justify-center gap-3 transition-all duration-300",
+                    "bg-emerald-500 text-white shadow-[0_15px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_20px_40px_rgba(16,185,129,0.4)] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:grayscale-[0.5]"
                   )}
                 >
                   {isProcessing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
-                    <>Pagar <CreditCard className="w-4 h-4" /></>
+                    <>Finalizar e Pagar <CreditCard className="w-5 h-5" /></>
                   )}
                 </motion.button>
 

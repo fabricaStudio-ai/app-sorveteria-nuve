@@ -25,21 +25,23 @@ export default function RoleSelection() {
         </motion.div>
 
         <div className="grid gap-6">
-           <motion.button
-             initial={{ opacity: 0, x: -20 }}
-             animate={{ opacity: 1, x: 0 }}
-             transition={{ delay: 0.1 }}
-             onClick={() => setUserRole('admin')}
-             className="glass-dark p-8 rounded-[2.5rem] border border-white/5 flex flex-col items-center gap-4 hover:border-primary/50 transition-all group active:scale-95"
-           >
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
-                 <LayoutDashboard className="w-8 h-8" />
-              </div>
-              <div className="text-center">
-                 <h3 className="text-lg font-bold text-white mb-1">Modo Gestor</h3>
-                 <p className="text-xs text-white/30 uppercase font-black tracking-widest">Acesso total ao painel</p>
-              </div>
-           </motion.button>
+           {profile?.isAdmin && (
+             <motion.button
+               initial={{ opacity: 0, x: -20 }}
+               animate={{ opacity: 1, x: 0 }}
+               transition={{ delay: 0.1 }}
+               onClick={() => setUserRole('admin')}
+               className="glass-dark p-8 rounded-[2.5rem] border border-white/5 flex flex-col items-center gap-4 hover:border-primary/50 transition-all group active:scale-95"
+             >
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+                   <LayoutDashboard className="w-8 h-8" />
+                </div>
+                <div className="text-center">
+                   <h3 className="text-lg font-bold text-white mb-1">Modo Gestor</h3>
+                   <p className="text-xs text-white/30 uppercase font-black tracking-widest">Acesso total ao painel</p>
+                </div>
+             </motion.button>
+           )}
 
            <motion.button
              initial={{ opacity: 0, x: 20 }}

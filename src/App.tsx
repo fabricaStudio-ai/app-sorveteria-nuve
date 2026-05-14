@@ -126,7 +126,6 @@ function AppContent() {
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
 
       {userRole !== 'admin' && <WhatsAppFAB />}
-      <PWAInstallPrompt />
 
       {!isSplashVisible && (
         <div className="fixed bottom-0 left-0 right-0 z-[80] pointer-events-none">
@@ -144,6 +143,7 @@ export default function App() {
     <AppProvider>
       <BrowserRouter>
         <AppContent />
+        <PWAInstallPrompt />
       </BrowserRouter>
     </AppProvider>
   );

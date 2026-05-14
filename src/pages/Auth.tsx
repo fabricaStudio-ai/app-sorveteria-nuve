@@ -10,7 +10,8 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  ShoppingBag
+  ShoppingBag,
+  Smartphone
 } from 'lucide-react';
 import { 
   signInWithEmailAndPassword, 
@@ -24,6 +25,7 @@ import { auth } from '../lib/firebase';
 const googleProvider = new GoogleAuthProvider();
 
 export default function Auth() {
+  const [step, setStep] = useState<'intro' | 'auth'>('intro');
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,6 +33,79 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  if (step === 'intro') {
+    return (
+      <div className="min-h-screen bg-dark flex flex-col justify-center p-6 relative overflow-hidden">
+        <div className="absolute top-[-20%] right-[-10%] w-[80%] h-[60%] bg-primary/20 blur-[140px] rounded-full animate-pulse" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[50%] bg-secondary/10 blur-[120px] rounded-full" />
+
+        <div className="relative z-10 w-full max-w-md mx-auto text-center">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-24 h-24 bg-white/5 backdrop-blur-xl rounded-[2.5rem] flex items-center justify-center mx-auto mb-10 border border-white/10"
+          >
+             <ShoppingBag className="w-12 h-12 text-primary" />
+          </motion.div>
+
+          <motion.h1 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-5xl font-serif italic text-white font-bold leading-tight mb-4"
+          >
+            Nuvê Sorteria
+          </motion.h1>
+
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-white/50 text-lg mb-12 font-medium"
+          >
+            A melhor experiência de gelateria artesanal, agora no seu bolso.
+          </motion.p>
+
+          <div className="space-y-4">
+             <motion.button
+               initial={{ opacity: 0, x: -20 }}
+               animate={{ opacity: 1, x: 0 }}
+               transition={{ delay: 0.3 }}
+               onClick={() => {
+                 window.dispatchEvent(new Event('force-show-install-prompt'));
+               }}
+               className="w-full bg-primary text-dark py-6 rounded-[2rem] font-black uppercase text-[12px] tracking-[0.2em] shadow-[0_20px_40px_rgba(0,242,255,0.2)] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+             >
+                <Smartphone className="w-5 h-5" /> Baixar App
+             </motion.button>
+
+             <motion.button
+               initial={{ opacity: 0, x: 20 }}
+               animate={{ opacity: 1, x: 0 }}
+               transition={{ delay: 0.4 }}
+               onClick={() => setStep('auth')}
+               className="w-full glass py-6 rounded-[2rem] font-black uppercase text-[12px] tracking-[0.2em] text-white/60 hover:text-white transition-all flex items-center justify-center gap-2"
+             >
+                Entrar via Navegador <ArrowRight className="w-5 h-5" />
+             </motion.button>
+          </div>
+
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="mt-12 p-6 glass rounded-3xl border-white/5"
+          >
+            <p className="text-[10px] font-black uppercase tracking-widest text-white/30 mb-2">Instalação Rápida</p>
+            <p className="text-[11px] text-white/50 leading-relaxed font-medium">
+              Abra em "Adicionar à Tela de Início" no seu navegador <br /> para ter a experiência completa de APP sem baixar nada.
+            </p>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();

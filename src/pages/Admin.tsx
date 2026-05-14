@@ -56,7 +56,11 @@ import {
   Volume2,
   Sparkles,
   Share2,
-  Zap
+  Zap,
+  Instagram,
+  MessageCircle,
+  Smartphone,
+  ChevronRight
 } from 'lucide-react';
 import * as htmlToImage from 'html-to-image';
 import { 
@@ -161,7 +165,8 @@ export default function Admin() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [orderFilter, setOrderFilter] = useState<'Todos' | 'Pendentes' | 'Preparando' | 'Prontos'>('Todos');
+  const [orderFilter, setOrderFilter] = useState<'Todos' | 'Pendentes' | 'Preparando' | 'Prontos' | 'Finalizados' | 'Cancelados' | 'Aprovação'>('Todos');
+  const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Notification State
@@ -203,8 +208,11 @@ export default function Admin() {
     code: ''
   });
   const [sharingPromo, setSharingPromo] = useState<any | null>(null);
+  const [shareConfig, setShareConfig] = useState<{ promo: any } | null>(null);
   const [isGeneratingShare, setIsGeneratingShare] = useState(false);
   const promoShareRef = useRef<HTMLDivElement>(null);
+  const instagramPostRef = useRef<HTMLDivElement>(null);
+  const instagramStoryRef = useRef<HTMLDivElement>(null);
 
   const handleCallLalamove = async (order: Order) => {
     try {
@@ -242,52 +250,64 @@ export default function Admin() {
     }
   };
 
-  const handleSharePromo = async (promo: any) => {
+  const handleSharePromo = async (promo: any, type: 'whatsapp' | 'instagram_post' | 'instagram_story' = 'whatsapp') => {
     setSharingPromo(promo);
     setIsGeneratingShare(true);
     
     // allow render
     setTimeout(async () => {
-       if (promoShareRef.current) {
+       const targetRef = type === 'instagram_post' ? instagramPostRef : 
+                         type === 'instagram_story' ? instagramStoryRef : 
+                         promoShareRef;
+
+       if (targetRef.current) {
           try {
-             const dataUrl = await htmlToImage.toPng(promoShareRef.current, {
+             const dataUrl = await htmlToImage.toPng(targetRef.current, {
                 quality: 1,
-                pixelRatio: 1 // Keep size reasonable
+                pixelRatio: type.startsWith('instagram') ? 2 : 1
              });
              
-             // Convert string dataUrl to a File object
              const res = await fetch(dataUrl);
              const blob = await res.blob();
-             const file = new File([blob], `promocao_${promo.id}.png`, { type: 'image/png' });
+             const fileName = type === 'instagram_post' ? 'post_instagram.png' : 
+                             type === 'instagram_story' ? 'story_instagram.png' : 
+                             `promocao_${promo.id}.png`;
+             const file = new File([blob], fileName, { type: 'image/png' });
 
-             const appUrl = "https://app-sorveteria-nuve.vercel.app/";
+             const appUrl = window.location.origin;
              const textToShare = `*${promo.title}*\n${promo.discount}\n\n${promo.description}\n\n👉 Peça agora: ${appUrl}`;
 
-             const filesToShare = [file];
-             if (promo.image && promo.image.startsWith('http')) {
-               try {
-                 const imgRes = await fetch(promo.image);
-                 const imgBlob = await imgRes.blob();
-                 const imgFile = new File([imgBlob], 'foto_produto.png', { type: imgBlob.type });
-                 filesToShare.push(imgFile);
-               } catch (e) {}
-             }
+             if (type === 'whatsapp') {
+               const filesToShare = [file];
+               if (promo.image && promo.image.startsWith('http')) {
+                 try {
+                   const imgRes = await fetch(promo.image);
+                   const imgBlob = await imgRes.blob();
+                   const imgFile = new File([imgBlob], 'foto_produto.png', { type: imgBlob.type });
+                   filesToShare.push(imgFile);
+                 } catch (e) {}
+               }
 
-             if (navigator.canShare && navigator.canShare({ files: filesToShare })) {
-                await navigator.share({
-                  title: promo.title,
-                  text: textToShare,
-                  files: filesToShare
-                });
+               if (navigator.canShare && navigator.canShare({ files: filesToShare })) {
+                  await navigator.share({
+                    title: promo.title,
+                    text: textToShare,
+                    files: filesToShare
+                  });
+               } else {
+                  const a = document.createElement('a');
+                  a.href = dataUrl;
+                  a.download = fileName;
+                  a.click();
+                  const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textToShare)}`;
+                  window.open(waUrl, '_blank');
+               }
              } else {
-                // Fallback: download image and open WhatsApp
-                const a = document.createElement('a');
-                a.href = dataUrl;
-                a.download = `promocao_${promo.id}.png`;
-                a.click();
-                
-                const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textToShare)}`;
-                window.open(waUrl, '_blank');
+               const a = document.createElement('a');
+               a.href = dataUrl;
+               a.download = fileName;
+               a.click();
+               alert(`${type === 'instagram_post' ? 'Post' : 'Story'} gerado e baixado! Agora você pode postar no seu Instagram.`);
              }
           } catch(e) {
              console.error("Error sharing promo:", e);
@@ -296,6 +316,7 @@ export default function Admin() {
        }
        setIsGeneratingShare(false);
        setSharingPromo(null);
+       setShareConfig(null);
     }, 500);
   };
 
@@ -406,6 +427,7 @@ export default function Admin() {
     try {
       await deleteDoc(doc(db, 'orders', id));
       console.log("Order deleted successfully:", id);
+      setOrderToDelete(null); // Clear confirmation state
     } catch (e) {
       console.error("Delete order error:", e);
       handleFirestoreError(e, OperationType.DELETE, `orders/${id}`);
@@ -1222,7 +1244,7 @@ export default function Admin() {
                           <p className="text-white/40 text-sm mt-3 font-medium">Pedidos com pagamento aprovado.</p>
                        </div>
                        <div className="flex gap-4 p-1 glass rounded-2xl border-white/5 overflow-x-auto scrollbar-none">
-                          {['Aprovação', 'Pendentes', 'Preparando', 'Prontos'].map((filter) => (
+                          {['Todos', 'Pendentes', 'Preparando', 'Prontos', 'Finalizados', 'Cancelados', 'Aprovação'].map((filter) => (
                             <button 
                               key={filter} 
                               onClick={() => setOrderFilter(filter as any)}
@@ -1265,26 +1287,23 @@ export default function Admin() {
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
-                                      const btn = e.currentTarget;
-                                      if (btn.dataset.confirm === "true") {
+                                      if (orderToDelete === order.id) {
                                         deleteOrder(order.id);
-                                        btn.dataset.confirm = "false";
-                                        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
                                       } else {
-                                        btn.dataset.confirm = "true";
-                                        btn.innerHTML = '<span class="text-[8px] font-bold">CONFIRMAR?</span>';
+                                        setOrderToDelete(order.id);
                                         setTimeout(() => {
-                                          if (btn) {
-                                            btn.dataset.confirm = "false";
-                                            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
-                                          }
-                                        }, 3000);
+                                          setOrderToDelete(current => current === order.id ? null : current);
+                                        }, 4000);
                                       }
                                     }}
                                     className="p-3 glass rounded-2xl text-white/50 hover:text-red-500 hover:bg-red-500/20 border-white/10 bg-white/5 transition-all active:scale-95 flex items-center justify-center self-center relative z-30 pointer-events-auto min-w-[50px] min-h-[50px]"
                                     title="Excluir Pedido"
                                   >
-                                    <Trash2 className="w-5 h-5" />
+                                    {orderToDelete === order.id ? (
+                                      <span className="text-[8px] font-bold text-red-500">CONFIRMAR?</span>
+                                    ) : (
+                                      <Trash2 className="w-5 h-5" />
+                                    )}
                                   </button>
                                </div>
                                <div className="text-right">
@@ -1436,12 +1455,12 @@ export default function Admin() {
                                </div>
                                <div className="flex gap-2">
                                   <button 
-                                     onClick={() => handleSharePromo(promo)} 
+                                     onClick={() => setShareConfig({ promo })}
                                      disabled={isGeneratingShare}
                                      className="px-4 py-3 bg-[#25D366]/10 text-[#25D366] rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-[#25D366]/20 transition-all active:scale-95 border border-[#25D366]/20"
                                      title="Compartilhar no WhatsApp"
                                   >
-                                     <Share2 className="w-4 h-4" /> {isGeneratingShare && sharingPromo?.id === promo.id ? 'Gerando...' : 'Status'}
+                                     <Share2 className="w-4 h-4" /> {isGeneratingShare && sharingPromo?.id === promo.id ? 'Gerando...' : 'Compartilhar'}
                                   </button>
                                   <button onClick={() => { 
                                     setEditingPromo(promo); 
@@ -2302,10 +2321,93 @@ export default function Admin() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Share Options Modal */}
+        {shareConfig && (
+           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-dark/95 backdrop-blur-3xl"
+                onClick={() => setShareConfig(null)}
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-sm glass rounded-[3rem] p-8 border-white/5 overflow-hidden"
+              >
+                 <h3 className="text-2xl font-serif italic font-bold mb-2">Compartilhar Oferta</h3>
+                 <p className="text-white/40 text-[10px] font-black uppercase tracking-widest mb-8">Escolha o formato ideal</p>
+
+                 <div className="space-y-4">
+                    <button 
+                       onClick={() => handleSharePromo(shareConfig.promo, 'whatsapp')}
+                       disabled={isGeneratingShare}
+                       className="w-full p-6 glass rounded-2xl flex items-center justify-between group hover:bg-white/5 transition-all text-left"
+                    >
+                       <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-[#25D366]/10 text-[#25D366] rounded-xl flex items-center justify-center">
+                             <MessageCircle className="w-6 h-6" />
+                          </div>
+                          <div>
+                             <p className="text-sm font-bold">WhatsApp Status</p>
+                             <p className="text-[10px] text-white/30 uppercase font-black">Texto + Imagem</p>
+                          </div>
+                       </div>
+                       <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-white transition-colors" />
+                    </button>
+
+                    <button 
+                       onClick={() => handleSharePromo(shareConfig.promo, 'instagram_post')}
+                       disabled={isGeneratingShare}
+                       className="w-full p-6 glass rounded-2xl flex items-center justify-between group hover:bg-white/5 transition-all text-left"
+                    >
+                       <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-[#E1306C]/10 text-[#E1306C] rounded-xl flex items-center justify-center">
+                             <Instagram className="w-6 h-6" />
+                          </div>
+                          <div>
+                             <p className="text-sm font-bold">Instagram Post</p>
+                             <p className="text-[10px] text-white/30 uppercase font-black">Medida 1:1 (1080x1080)</p>
+                          </div>
+                       </div>
+                       <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-white transition-colors" />
+                    </button>
+
+                    <button 
+                       onClick={() => handleSharePromo(shareConfig.promo, 'instagram_story')}
+                       disabled={isGeneratingShare}
+                       className="w-full p-6 glass rounded-2xl flex items-center justify-between group hover:bg-white/5 transition-all text-left"
+                    >
+                       <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white rounded-xl flex items-center justify-center">
+                             <Instagram className="w-6 h-6" />
+                          </div>
+                          <div>
+                             <p className="text-sm font-bold">Instagram Story</p>
+                             <p className="text-[10px] text-white/30 uppercase font-black">Medida 9:16 (1080x1920)</p>
+                          </div>
+                       </div>
+                       <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-white transition-colors" />
+                    </button>
+                 </div>
+
+                 <button 
+                   onClick={() => setShareConfig(null)}
+                   className="w-full mt-8 py-5 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white/40 transition-colors"
+                 >
+                    Cancelar
+                 </button>
+              </motion.div>
+           </div>
+        )}
       </AnimatePresence>
 
       {/* Hidden Status generator */}
-      <div className="absolute -left-[9999px] top-0 pointer-events-none">
+      <div className="fixed -left-[9999px] top-0 pointer-events-none">
+        {/* WhatsApp Template */}
         <div 
           ref={promoShareRef}
           className="w-[1080px] h-[1920px] bg-[#050505] flex flex-col relative overflow-hidden"
@@ -2355,6 +2457,76 @@ export default function Admin() {
               </div>
             </>
           )}
+        </div>
+
+        {/* Instagram Post Template (1080x1080) */}
+        <div ref={instagramPostRef} className="w-[1080px] h-[1080px] bg-dark flex flex-col items-center justify-center p-20 text-center relative overflow-hidden">
+           <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] bg-primary/30 blur-[150px] rounded-full" />
+           <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] bg-secondary/20 blur-[150px] rounded-full" />
+           
+           <div className="relative z-10 w-full h-full flex flex-col items-center justify-between border-[20px] border-white/5 rounded-[5rem] p-24">
+              <div className="space-y-4">
+                 <div className="w-32 h-32 bg-white/5 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 border border-white/10">
+                    <ShoppingBag className="w-16 h-16 text-primary" />
+                 </div>
+                 <h2 className="text-7xl font-serif italic font-bold tracking-tight text-white">{sharingPromo?.title}</h2>
+                 <div className="h-2 w-32 bg-primary mx-auto rounded-full mt-8" />
+              </div>
+
+              <div className="space-y-8">
+                 <p className="text-8xl font-black text-primary tracking-tighter drop-shadow-[0_0_30px_rgba(0,242,255,0.5)]">
+                    {sharingPromo?.discount}
+                 </p>
+                 <p className="text-3xl text-white/60 max-w-2xl mx-auto leading-relaxed">
+                    {sharingPromo?.description}
+                 </p>
+              </div>
+
+              <div className="mt-12 w-full">
+                 <div className="bg-white/5 border border-white/10 py-8 rounded-[2rem] mb-10">
+                    <p className="text-[14px] font-black uppercase tracking-[0.5em] text-white/30">Baixe o app no Link da Bio</p>
+                 </div>
+                 <p className="text-3xl font-serif italic text-white font-bold opacity-40">@{profile?.appName?.toLowerCase().replace(/\s/g, '') || 'nuve'}</p>
+              </div>
+           </div>
+        </div>
+
+        {/* Instagram Story Template (1080x1920) */}
+        <div ref={instagramStoryRef} className="w-[1080px] h-[1920px] bg-dark flex flex-col items-center justify-between p-24 relative overflow-hidden">
+           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-primary/10 via-dark to-dark" />
+           <div className="absolute top-[-5%] left-[-20%] w-full h-[40%] bg-primary/20 blur-[200px] rounded-full" />
+           
+           <div className="relative z-10 text-center w-full mt-24">
+              <div className="w-40 h-40 bg-white/5 rounded-[3rem] flex items-center justify-center mx-auto mb-12 border border-white/10">
+                 <ShoppingBag className="w-20 h-20 text-primary" />
+              </div>
+              <h3 className="text-4xl font-black uppercase tracking-[0.4em] text-primary mb-4">OFERTA IMPERDÍVEL</h3>
+              <div className="h-1 bg-white/10 w-64 mx-auto rounded-full" />
+           </div>
+
+           <div className="relative z-10 w-full">
+              <div className="p-20 glass rounded-[6rem] border-white/5 backdrop-blur-3xl shadow-2xl text-center">
+                 <h2 className="text-9xl font-serif italic font-bold leading-[0.9] mb-12 text-white">{sharingPromo?.title}</h2>
+                 <p className="text-9xl font-black text-secondary tracking-tighter drop-shadow-[0_0_50px_rgba(112,0,255,0.4)]">
+                    {sharingPromo?.discount}
+                 </p>
+                 <div className="h-1 bg-white/5 w-full my-16 rounded-full" />
+                 <p className="text-4xl text-white/50 leading-relaxed italic">
+                    "{sharingPromo?.description}"
+                 </p>
+              </div>
+           </div>
+
+           <div className="relative z-10 w-full mb-24 text-center space-y-12">
+              <div className="bg-primary p-12 rounded-[3.5rem] shadow-[0_30px_60px_rgba(0,242,255,0.3)]">
+                 <p className="text-5xl font-black uppercase tracking-[0.2em] text-dark">LINK NA BIO</p>
+                 <p className="text-2xl font-bold text-dark/60 mt-4 uppercase tracking-widest">E PEÇA JÁ O SEU</p>
+              </div>
+              <div className="space-y-4">
+                 <p className="text-3xl text-white/20 font-black uppercase tracking-[0.6em]">NUVE SORVETERIA</p>
+                 <p className="text-xl text-white/10 font-mono">@{profile?.appName?.toLowerCase().replace(/\s/g, '') || 'nuve'}</p>
+              </div>
+           </div>
         </div>
       </div>
 
