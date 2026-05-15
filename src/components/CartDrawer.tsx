@@ -43,48 +43,46 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
   const createOrderInFirestore = async (method: 'online' | 'whatsapp') => {
     try {
       const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
-      
-      // Limpa os itens do carrinho para garantir que não existam campos 'undefined'
+
+      // Sanitização profunda de itens
       const sanitizedItems = cart.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image,
-        flavors: item.flavors || [],
-        toppings: item.toppings || [],
+        id: item.id || '',
+        name: item.name || 'Produto',
+        price: Number(item.price) || 0,
+        quantity: Number(item.quantity) || 1,
+        image: item.image || '',
+        flavors: Array.isArray(item.flavors) ? item.flavors : [],
+        toppings: Array.isArray(item.toppings) ? item.toppings : [],
         notes: item.notes || ""
       }));
 
-      const orderData = {
+      // Construção explícita do objeto para evitar campos undefined
+      const orderData: any = {
         userId: authUser?.uid || null,
-        customerName: getCustomerName(),
-        customerEmail: authUser?.email || '',
+        customerName: String(getCustomerName()),
+        customerEmail: String(authUser?.email || ''),
         items: sanitizedItems,
-        total: finalTotal,
-        subtotal: total,
-        pointsUsed: usePoints ? Math.min(profile?.points || 0, Math.floor(pointsDiscount * 10)) : 0,
-        pointsDiscount: usePoints ? pointsDiscount : 0,
-        pointsEarned: pointsToEarn,
-        deliveryMethod: deliveryType,
+        total: Number(finalTotal) || 0,
+        subtotal: Number(total) || 0,
+        pointsUsed: Number(usePoints ? Math.min(profile?.points || 0, Math.floor(pointsDiscount * 10)) : 0),
+        pointsDiscount: Number(usePoints ? pointsDiscount : 0),
+        pointsEarned: Number(pointsToEarn) || 0,
+        deliveryMethod: String(deliveryType),
+        status: method === 'online' ? 'pending_payment' : 'received',
+        paymentMethodId: method === 'online' ? 'mercadopago' : 'whatsapp',
+        paymentStatus: 'pending',
+        paymentApproved: false,
+        createdAt: new Date().toISOString(),
+        orderNumber: String(orderNumber),
         deliveryAddress: deliveryType === 'delivery' ? {
-          street: address,
+          street: String(address || '').trim(),
           number: '',
           neighborhood: '',
           city: '',
-        } : null,
-        status: method === 'online' ? 'pending_payment' : 'received',
-        paymentMethodId: method === 'online' ? 'mercadopago' : 'whatsapp',
-        paymentStatus: method === 'whatsapp' ? 'pending' : 'pending',
-        paymentApproved: false,
-        createdAt: new Date().toISOString(),
-        orderNumber: orderNumber
+        } : null // Firestore aceita null, mas nunca undefined
       };
 
-      // Técnica segura: remove todas as chaves 'undefined' antes de enviar ao Firebase
-      const finalOrder = JSON.parse(JSON.stringify(orderData));
-      
-      const docRef = await addDoc(collection(db, 'orders'), finalOrder);
+      const docRef = await addDoc(collection(db, 'orders'), orderData);
       return { id: docRef.id, orderNumber };
     } catch (e) {
       console.error("Error creating order:", e);
