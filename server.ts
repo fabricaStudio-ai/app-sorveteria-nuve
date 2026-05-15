@@ -22,6 +22,7 @@ try {
   const adminInstance = (admin as any).default || admin;
   const apps = adminInstance.apps || [];
 
+  // Check if an app is already initialized to avoid "app already exists" error
   if (apps.length === 0) {
     const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     let credential;
