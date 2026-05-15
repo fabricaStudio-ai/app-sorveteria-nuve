@@ -1,16 +1,58 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, query, where, getDocs, limit, doc, updateDoc, setDoc } from 'firebase/firestore';
+import * as admin from 'firebase-admin';
 import dotenv from "dotenv";
-import firebaseConfig from './firebase-applet-config.json';
 
 dotenv.config();
 
-// Initialize Firebase for server-side lookup
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
+let firebaseConfig: any = {};
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+} catch (e) {
+  console.warn("Could not load firebase config directly from cwd", e);
+}
+
+// Initialize Firebase Admin
+let db: admin.firestore.Firestore | null = null;
+try {
+  // Handle different import styles depending on the environment/bundler
+  const adminInstance = (admin as any).default || admin;
+  const apps = adminInstance.apps || [];
+
+  if (apps.length === 0) {
+    const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    let credential;
+
+    if (serviceAccountVar) {
+      try {
+        const serviceAccount = JSON.parse(serviceAccountVar);
+        credential = adminInstance.credential.cert(serviceAccount);
+        console.log("DEBUG: Initializing Firebase Admin with Service Account JSON.");
+      } catch (e) {
+        console.error("ERROR: Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. Falling back to applicationDefault.", e);
+        credential = adminInstance.credential.applicationDefault();
+      }
+    } else {
+      console.log("DEBUG: FIREBASE_SERVICE_ACCOUNT_JSON not found. Using applicationDefault().");
+      credential = adminInstance.credential.applicationDefault();
+    }
+
+    adminInstance.initializeApp({
+      credential,
+      projectId: firebaseConfig.projectId || process.env.FIREBASE_PROJECT_ID,
+    });
+    console.log("DEBUG: Admin app initialized successfully.");
+  } else {
+    console.log("DEBUG: Admin app already running.");
+  }
+  db = adminInstance.firestore();
+  console.log("DEBUG: db instance created.");
+} catch (error) {
+  console.error("Firebase admin initialization error:", error);
+}
 
 export const app = express();
 app.use(express.json());
@@ -92,19 +134,23 @@ app.get('/api/auth/mp/callback', async (req, res) => {
     // data contains: access_token, public_key, refresh_token, etc.
     const { access_token, public_key } = data;
 
+    if (!db) {
+       throw new Error("Database not initialized on server");
+    }
+
     // Update Firestore
-    const profileRef = doc(db, 'profiles', userId as string);
-    const secretsRef = doc(db, 'profiles', userId as string, 'private', 'secrets');
+    const profileRef = db.collection('profiles').doc(userId as string);
+    const secretsRef = profileRef.collection('private').doc('secrets');
     
     // Update basic status on profile
-    await updateDoc(profileRef, {
+    await profileRef.update({
       mpConnected: true,
       updatedAt: new Date().toISOString()
     });
 
     // Save sensitive tokens in the private subcollection
     // Using setDoc with merge: true to avoid errors if the doc doesn't exist yet
-    await setDoc(secretsRef, {
+    await secretsRef.set({
       mpAccessToken: access_token,
       mpPublicKey: public_key,
       updatedAt: new Date().toISOString()
@@ -155,16 +201,18 @@ app.post("/api/create-preference", async (req, res) => {
     
     // Allow for runtime fallback correctly
     if (!accessToken || accessToken === 'YOUR_ACCESS_TOKEN') {
-      const profilesRef = collection(db, "profiles");
-      const q = query(profilesRef, where("mpConnected", "==", true), limit(1));
-      const querySnapshot = await getDocs(q);
+      if (!db) {
+         console.error("Database not initialized");
+         return res.status(500).json({ error: "Configuração do servidor incompleta (DB ausente)." });
+      }
+      const querySnapshot = await db.collection("profiles").where("mpConnected", "==", true).limit(1).get();
       
       if (!querySnapshot.empty) {
         const profileId = querySnapshot.docs[0].id;
         const profileData = querySnapshot.docs[0].data();
         
         // Try to get from subcollection first (new way)
-        const secretsSnap = await getDocs(query(collection(db, 'profiles', profileId, 'private'), limit(1)));
+        const secretsSnap = await db.collection("profiles").doc(profileId).collection("private").limit(1).get();
         
         if (!secretsSnap.empty) {
           accessToken = secretsSnap.docs[0].data().mpAccessToken;
@@ -225,10 +273,11 @@ app.post("/api/create-preference", async (req, res) => {
 // Lalamove Endpoints
 app.post("/api/lalamove/quote", async (req, res) => {
   try {
+    if (!db) {
+       return res.status(500).json({ error: "Servidor sem conexão com o banco de dados." });
+    }
     // Find a manager with Lalamove credentials
-    const profilesRef = collection(db, "profiles");
-    const q = query(profilesRef, where("lalamoveConnected", "==", true), limit(1));
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await db.collection("profiles").where("lalamoveConnected", "==", true).limit(1).get();
     
     let apiKey = "";
     let apiSecret = "";
@@ -237,7 +286,7 @@ app.post("/api/lalamove/quote", async (req, res) => {
       const profileId = querySnapshot.docs[0].id;
       const profileData = querySnapshot.docs[0].data();
       
-      const secretsSnap = await getDocs(query(collection(db, 'profiles', profileId, 'private'), limit(1)));
+      const secretsSnap = await db.collection("profiles").doc(profileId).collection("private").limit(1).get();
       if (!secretsSnap.empty) {
         const secretsData = secretsSnap.docs[0].data();
         apiKey = secretsData.lalamoveApiKey;
@@ -265,9 +314,10 @@ app.post("/api/lalamove/quote", async (req, res) => {
 
 app.post("/api/lalamove/order", async (req, res) => {
   try {
-    const profilesRef = collection(db, "profiles");
-    const q = query(profilesRef, where("lalamoveConnected", "==", true), limit(1));
-    const querySnapshot = await getDocs(q);
+    if (!db) {
+       return res.status(500).json({ error: "Servidor sem conexão com o banco de dados." });
+    }
+    const querySnapshot = await db.collection("profiles").where("lalamoveConnected", "==", true).limit(1).get();
     
     let apiKey = "";
     let apiSecret = "";
@@ -276,7 +326,7 @@ app.post("/api/lalamove/order", async (req, res) => {
       const profileId = querySnapshot.docs[0].id;
       const profileData = querySnapshot.docs[0].data();
       
-      const secretsSnap = await getDocs(query(collection(db, 'profiles', profileId, 'private'), limit(1)));
+      const secretsSnap = await db.collection("profiles").doc(profileId).collection("private").limit(1).get();
       if (!secretsSnap.empty) {
         const secretsData = secretsSnap.docs[0].data();
         apiKey = secretsData.lalamoveApiKey;

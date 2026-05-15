@@ -18,6 +18,7 @@ import Auth from './pages/Auth';
 import RoleSelection from './pages/RoleSelection';
 import Settings from './pages/Settings';
 import Orders from './pages/Orders';
+import OrderTracking from './pages/OrderTracking';
 
 // Empty pages for routing demonstration
 const Promos = () => <div className="p-8 text-center text-white/40">Promoções em breve...</div>;
@@ -112,6 +113,7 @@ function AppContent() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={userRole === 'admin' ? <Admin /> : <Navigate to="/" />} />
+              <Route path="/tracking/:orderId" element={<OrderTracking />} />
             </Routes>
           </div>
         </AnimatePresence>

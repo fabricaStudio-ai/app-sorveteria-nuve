@@ -28,12 +28,27 @@
         "userId": { "type": "string" },
         "items": { "type": "array" },
         "total": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending", "preparing", "delivering", "completed", "cancelled"] },
+        "status": { "type": "string", "enum": ["pending_payment", "received", "preparing", "shipped", "ready_for_pickup", "completed", "cancelled"] },
+        "paymentStatus": { "type": "string", "enum": ["pending", "paid", "failed", "refunded"] },
+        "deliveryMethod": { "type": "string", "enum": ["delivery", "pickup"] },
+        "deliveryAddress": {
+          "type": "object",
+          "properties": {
+            "street": { "type": "string" },
+            "number": { "type": "string" },
+            "complement": { "type": "string" },
+            "neighborhood": { "type": "string" },
+            "city": { "type": "string" },
+            "zipCode": { "type": "string" }
+          }
+        },
         "customerName": { "type": "string" },
         "customerPhone": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "paymentInfo": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["items", "total", "status", "createdAt"]
+      "required": ["items", "total", "status", "deliveryMethod", "createdAt"]
     },
     "Profile": {
       "title": "Profile",

@@ -163,7 +163,7 @@ export default function Admin() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [orderFilter, setOrderFilter] = useState<'Todos' | 'Pendentes' | 'Preparando' | 'Prontos' | 'Finalizados' | 'Cancelados' | 'Aprovação'>('Todos');
+  const [orderFilter, setOrderFilter] = useState<'Todos' | 'Pagamento' | 'Novos' | 'Preparando' | 'Prontos' | 'Enviados' | 'Finalizados' | 'Cancelados'>('Todos');
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -405,8 +405,8 @@ export default function Admin() {
       // Check for new orders to trigger notification
       if (ordersData.length > prevOrdersCount.current && prevOrdersCount.current !== 0) {
         const latestOrder = ordersData[0];
-        // Only notify if it's a pending order AND it's not from the admin
-        if (latestOrder && latestOrder.status === 'pending' && latestOrder.customerEmail !== 'fabricasoftwareai@gmail.com') {
+        // Only notify if it's a new or received order AND it's not from the admin
+        if (latestOrder && (latestOrder.status === 'pending_payment' || latestOrder.status === 'received') && latestOrder.customerEmail !== 'fabricasoftwareai@gmail.com') {
           setNewOrderNotification(latestOrder);
           audioRef.current?.play().catch(e => console.log('Audio play blocked'));
         }
@@ -1242,7 +1242,7 @@ export default function Admin() {
                           <p className="text-white/40 text-sm mt-3 font-medium">Pedidos com pagamento aprovado.</p>
                        </div>
                        <div className="flex gap-4 p-1 glass rounded-2xl border-white/5 overflow-x-auto scrollbar-none">
-                          {['Todos', 'Pendentes', 'Preparando', 'Prontos', 'Finalizados', 'Cancelados', 'Aprovação'].map((filter) => (
+                          {['Todos', 'Pagamento', 'Novos', 'Preparando', 'Prontos', 'Enviados', 'Finalizados', 'Cancelados'].map((filter) => (
                             <button 
                               key={filter} 
                               onClick={() => setOrderFilter(filter as any)}
@@ -1256,14 +1256,15 @@ export default function Admin() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                        {orders.filter(o => {
-                         if (orderFilter === 'Aprovação') return !o.paymentApproved;
-                         if (!o.paymentApproved) return false; // Hide unapproved from other tabs
-                         
-                         if (orderFilter === 'Pendentes') return o.status === 'pending';
+                         if (orderFilter === 'Pagamento') return o.status === 'pending_payment';
+                         if (orderFilter === 'Novos') return o.status === 'received';
                          if (orderFilter === 'Preparando') return o.status === 'preparing';
-                         if (orderFilter === 'Prontos') return o.status === 'ready';
+                         if (orderFilter === 'Prontos') return o.status === 'ready_for_pickup';
+                         if (orderFilter === 'Enviados') return o.status === 'shipped';
+                         if (orderFilter === 'Finalizados') return o.status === 'completed';
+                         if (orderFilter === 'Cancelados') return o.status === 'cancelled';
                          return o.status !== 'completed' && o.status !== 'cancelled';
-                       }).map((order, idx) => (
+                       }).map((order) => (
                          <motion.div 
                            key={order.id}
                            layout
@@ -1271,7 +1272,7 @@ export default function Admin() {
                            animate={{ opacity: 1, scale: 1 }}
                            className={cn(
                              "glass rounded-[3rem] p-8 border-white/5 relative overflow-hidden transition-all duration-500",
-                             order.status === 'ready' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5"
+                             order.status === 'ready_for_pickup' || order.status === 'shipped' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5"
                            )}
                          >
                             <div className="flex justify-between items-start mb-6">
@@ -1311,11 +1312,18 @@ export default function Admin() {
                                   </div>
                                   <span className={cn(
                                     "px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border",
-                                    order.status === 'pending' ? "bg-orange-500/10 text-orange-400 border-orange-500/20" :
+                                    order.status === 'pending_payment' ? "bg-orange-500/10 text-orange-400 border-orange-500/20" :
+                                    order.status === 'received' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
                                     order.status === 'preparing' ? "bg-primary/10 text-primary border-primary/20 animate-pulse" :
-                                    "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                    order.status === 'shipped' || order.status === 'ready_for_pickup' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                    "bg-white/5 text-white/20 border-white/10"
                                   )}>
-                                     {order.status === 'pending' ? 'Pendente' : order.status === 'preparing' ? 'Preparando' : 'Pronto'}
+                                     {order.status === 'pending_payment' ? 'Pagamento' : 
+                                      order.status === 'received' ? 'Novo' : 
+                                      order.status === 'preparing' ? 'Preparando' : 
+                                      order.status === 'shipped' ? 'Enviado' :
+                                      order.status === 'ready_for_pickup' ? 'Pronto' :
+                                      order.status === 'completed' ? 'Finalizado' : 'Cancelado'}
                                   </span>
                                </div>
                             </div>
@@ -1343,11 +1351,15 @@ export default function Admin() {
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 relative z-10">
-                               {!order.paymentApproved && (
+                               {order.status === 'pending_payment' && (
                                  <button 
                                    onClick={() => {
                                       if(confirm("Confirmar que o pagamento foi recebido?")) {
-                                        updateDoc(doc(db, 'orders', order.id), { paymentApproved: true, paymentStatus: 'approved' });
+                                        updateDoc(doc(db, 'orders', order.id), { 
+                                          status: 'received',
+                                          paymentApproved: true, 
+                                          paymentStatus: 'approved' 
+                                        });
                                       }
                                    }}
                                    className="col-span-2 bg-emerald-500 text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
@@ -1356,7 +1368,7 @@ export default function Admin() {
                                  </button>
                                )}
 
-                               {order.paymentApproved && order.status === 'pending' && (
+                               {order.status === 'received' && (
                                  <button 
                                    onClick={() => updateOrderStatus(order.id, 'preparing')}
                                    className="col-span-2 bg-primary text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
@@ -1364,17 +1376,17 @@ export default function Admin() {
                                     <ChefHat className="w-4 h-4" /> Começar Preparo
                                  </button>
                                )}
-                               {order.paymentApproved && order.status === 'preparing' && (
+                               {order.status === 'preparing' && (
                                  <button 
-                                   onClick={() => updateOrderStatus(order.id, 'ready')}
+                                   onClick={() => updateOrderStatus(order.id, order.deliveryMethod === 'delivery' ? 'shipped' : 'ready_for_pickup')}
                                    className="col-span-2 bg-secondary text-white py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
                                  >
-                                    <Bell className="w-4 h-4" /> Marcar como Pronto
+                                    <Bell className="w-4 h-4" /> {order.deliveryMethod === 'delivery' ? 'Marcar como Enviado' : 'Marcar como Pronto'}
                                  </button>
                                )}
-                               {order.paymentApproved && order.status === 'ready' && (
+                               {(order.status === 'shipped' || order.status === 'ready_for_pickup') && (
                                  <>
-                                   {order.deliveryType === 'delivery' && !order.lalamoveStatus && profile?.lalamoveConnected && (
+                                   {order.deliveryMethod === 'delivery' && !order.lalamoveStatus && profile?.lalamoveConnected && (
                                      <button 
                                        onClick={() => handleCallLalamove(order)}
                                        className="col-span-2 bg-[#F37021] text-white py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all mb-2"
@@ -1391,17 +1403,17 @@ export default function Admin() {
                                      onClick={() => updateOrderStatus(order.id, 'completed')}
                                      className="col-span-2 bg-emerald-500 text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
                                    >
-                                      <CheckCircle2 className="w-4 h-4" /> Entregar Pedido
+                                      <CheckCircle2 className="w-4 h-4" /> Finalizar Pedido
                                    </button>
                                  </>
                                )}
                             </div>
                             
                             <div className={cn(
-                              "absolute -bottom-20 -right-20 w-48 h-48 blur-[80px] opacity-10 rounded-full",
-                              order.status === 'preparing' ? "bg-primary" : "bg-white"
-                            )} />
-                       </motion.div>
+                               "absolute -bottom-20 -right-20 w-48 h-48 blur-[80px] opacity-10 rounded-full",
+                               order.status === 'preparing' ? "bg-primary" : "bg-white"
+                             )} />
+                        </motion.div>
                        ))}
 
                        {orders.length === 0 && (
