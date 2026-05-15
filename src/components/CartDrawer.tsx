@@ -60,7 +60,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
           number: '',
           neighborhood: '',
           city: '',
-        } : undefined,
+        } : null,
         status: method === 'online' ? 'pending_payment' : 'received',
         paymentMethodId: method === 'online' ? 'mercadopago' : 'whatsapp',
         paymentStatus: method === 'whatsapp' ? 'pending' : 'pending',
