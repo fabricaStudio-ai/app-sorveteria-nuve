@@ -43,12 +43,24 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
   const createOrderInFirestore = async (method: 'online' | 'whatsapp') => {
     try {
       const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
+      
+      // Limpa os itens do carrinho para garantir que não existam campos 'undefined'
+      const sanitizedItems = cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image,
+        flavors: item.flavors || [],
+        toppings: item.toppings || [],
+        notes: item.notes || ""
+      }));
+
       const orderData = {
         userId: authUser?.uid || null,
         customerName: getCustomerName(),
         customerEmail: authUser?.email || '',
-        customerPhone: profile?.phone || '',
-        items: cart,
+        items: sanitizedItems,
         total: finalTotal,
         subtotal: total,
         pointsUsed: usePoints ? Math.min(profile?.points || 0, Math.floor(pointsDiscount * 10)) : 0,
@@ -68,8 +80,11 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         createdAt: new Date().toISOString(),
         orderNumber: orderNumber
       };
+
+      // Técnica segura: remove todas as chaves 'undefined' antes de enviar ao Firebase
+      const finalOrder = JSON.parse(JSON.stringify(orderData));
       
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
+      const docRef = await addDoc(collection(db, 'orders'), finalOrder);
       return { id: docRef.id, orderNumber };
     } catch (e) {
       console.error("Error creating order:", e);
