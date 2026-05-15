@@ -44,7 +44,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
     try {
       const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
 
-      // Sanitização profunda de itens
+      // 1. Sanitização rigorosa dos itens do carrinho
       const sanitizedItems = cart.map(item => ({
         id: item.id || '',
         name: item.name || 'Produto',
@@ -56,15 +56,15 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         notes: item.notes || ""
       }));
 
-      // Construção explícita do objeto para evitar campos undefined
-      const orderData: any = {
+      // 2. Construção base do pedido (apenas campos garantidos)
+      const orderData: Record<string, any> = {
         userId: authUser?.uid || null,
         customerName: String(getCustomerName()),
         customerEmail: String(authUser?.email || ''),
         items: sanitizedItems,
         total: Number(finalTotal) || 0,
         subtotal: Number(total) || 0,
-        pointsUsed: Number(usePoints ? Math.min(profile?.points || 0, Math.floor(pointsDiscount * 10)) : 0),
+        pointsUsed: usePoints ? Math.min(profile?.points || 0, Math.floor(pointsDiscount * 10)) : 0,
         pointsDiscount: Number(usePoints ? pointsDiscount : 0),
         pointsEarned: Number(pointsToEarn) || 0,
         deliveryMethod: String(deliveryType),
@@ -73,14 +73,25 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         paymentStatus: 'pending',
         paymentApproved: false,
         createdAt: new Date().toISOString(),
-        orderNumber: String(orderNumber),
-        deliveryAddress: deliveryType === 'delivery' ? {
-          street: String(address || '').trim(),
-          number: '',
-          neighborhood: '',
-          city: '',
-        } : null // Firestore aceita null, mas nunca undefined
+        orderNumber: String(orderNumber)
       };
+
+      // 3. Adiciona o endereço apenas se for entrega, evitando chaves nulas/indefinidas
+      if (deliveryType === 'delivery') {
+        orderData.deliveryAddress = {
+          street: String(address || '').trim(),
+          number: '', // Pode ser expandido para campos específicos do formulário
+          neighborhood: '',
+          city: ''
+        };
+      }
+
+      // 4. Limpeza final: remove qualquer chave que possa ter ficado 'undefined' por acidente
+      Object.keys(orderData).forEach(key => {
+        if (orderData[key] === undefined) {
+          delete orderData[key];
+        }
+      });
 
       const docRef = await addDoc(collection(db, 'orders'), orderData);
       return { id: docRef.id, orderNumber };
