@@ -97,7 +97,7 @@ service cloud.firestore {
       allow read: if (isSignedIn() && (resource == null || resource.data.userId == request.auth.uid)) || isAdmin();
       allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
       
-      allow create: if isSignedIn() && isValidOrder(incoming());
+      allow create: if isValidOrder(incoming());
       
       // Admins have full control. Owners can only cancel pending payment orders.
       allow update: if isAdmin() || (

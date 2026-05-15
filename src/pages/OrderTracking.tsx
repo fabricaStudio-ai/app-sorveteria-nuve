@@ -35,19 +35,30 @@ export default function OrderTracking() {
   const { user } = useApp();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [prevStatus, setPrevStatus] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
     if (!orderId) return;
 
     const unsubscribe = onSnapshot(doc(db, 'orders', orderId), (doc) => {
       if (doc.exists()) {
-        setOrder({ id: doc.id, ...doc.data() } as Order);
+        const data = doc.data() as Order;
+        const newStatus = data.status;
+        
+        if (prevStatus && prevStatus !== newStatus) {
+            setNotification(`Seu pedido foi atualizado para: ${STATUS_STEPS.find(s => s.id === newStatus)?.label || 'Atualizado'}`);
+            setTimeout(() => setNotification(null), 5000);
+        }
+        
+        setPrevStatus(newStatus);
+        setOrder({ id: doc.id, ...data } as Order);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [orderId]);
+  }, [orderId, prevStatus]);
 
   if (loading) {
     return (
@@ -83,7 +94,23 @@ export default function OrderTracking() {
   const StatusIcon = currentStep?.icon || Clock;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white selection:bg-primary/30">
+    <div className={cn(
+      "min-h-screen bg-[#050505] text-white selection:bg-primary/30 transition-colors duration-500",
+      order.status === 'ready_for_pickup' && "animate-pulse bg-primary/20"
+    )}>
+      <AnimatePresence>
+        {notification && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-6 left-6 right-6 z-[60] bg-primary text-dark p-4 rounded-2xl font-black uppercase tracking-widest text-[10px] text-center shadow-2xl"
+          >
+            {notification}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="p-6 flex items-center justify-between sticky top-0 bg-dark/80 backdrop-blur-xl z-50 border-b border-white/5">
         <button onClick={() => navigate('/orders')} className="p-2 glass rounded-xl active:scale-95 transition-transform">

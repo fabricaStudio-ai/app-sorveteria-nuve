@@ -43,56 +43,32 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
   const createOrderInFirestore = async (method: 'online' | 'whatsapp') => {
     try {
       const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
-
-      // 1. Sanitização rigorosa dos itens do carrinho
-      const sanitizedItems = cart.map(item => ({
-        id: item.id || '',
-        name: item.name || 'Produto',
-        price: Number(item.price) || 0,
-        quantity: Number(item.quantity) || 1,
-        image: item.image || '',
-        flavors: Array.isArray(item.flavors) ? item.flavors : [],
-        toppings: Array.isArray(item.toppings) ? item.toppings : [],
-        notes: item.notes || ""
-      }));
-
-      // 2. Construção base do pedido (apenas campos garantidos)
-      const orderData: Record<string, any> = {
+      const orderData = {
         userId: authUser?.uid || null,
-        customerName: String(getCustomerName()),
-        customerEmail: String(authUser?.email || ''),
-        items: sanitizedItems,
-        total: Number(finalTotal) || 0,
-        subtotal: Number(total) || 0,
+        customerName: getCustomerName(),
+        customerEmail: authUser?.email || '',
+        customerPhone: profile?.phone || '',
+        items: cart,
+        total: finalTotal,
+        subtotal: total,
         pointsUsed: usePoints ? Math.min(profile?.points || 0, Math.floor(pointsDiscount * 10)) : 0,
-        pointsDiscount: Number(usePoints ? pointsDiscount : 0),
-        pointsEarned: Number(pointsToEarn) || 0,
-        deliveryMethod: String(deliveryType),
+        pointsDiscount: usePoints ? pointsDiscount : 0,
+        pointsEarned: pointsToEarn,
+        deliveryMethod: deliveryType,
+        deliveryAddress: deliveryType === 'delivery' ? {
+          street: address,
+          number: '',
+          neighborhood: '',
+          city: '',
+        } : undefined,
         status: method === 'online' ? 'pending_payment' : 'received',
         paymentMethodId: method === 'online' ? 'mercadopago' : 'whatsapp',
-        paymentStatus: 'pending',
+        paymentStatus: method === 'whatsapp' ? 'pending' : 'pending',
         paymentApproved: false,
         createdAt: new Date().toISOString(),
-        orderNumber: String(orderNumber)
+        orderNumber: orderNumber
       };
-
-      // 3. Adiciona o endereço apenas se for entrega, evitando chaves nulas/indefinidas
-      if (deliveryType === 'delivery') {
-        orderData.deliveryAddress = {
-          street: String(address || '').trim(),
-          number: '', // Pode ser expandido para campos específicos do formulário
-          neighborhood: '',
-          city: ''
-        };
-      }
-
-      // 4. Limpeza final: remove qualquer chave que possa ter ficado 'undefined' por acidente
-      Object.keys(orderData).forEach(key => {
-        if (orderData[key] === undefined) {
-          delete orderData[key];
-        }
-      });
-
+      
       const docRef = await addDoc(collection(db, 'orders'), orderData);
       return { id: docRef.id, orderNumber };
     } catch (e) {
