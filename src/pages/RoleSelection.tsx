@@ -22,6 +22,9 @@ export default function RoleSelection() {
              Bem-vindo{profile?.name ? `, ${profile.name}` : user?.displayName ? `, ${user.displayName}` : ''}
            </h1>
            <p className="text-white/40 text-sm font-medium">Como você deseja acessar o app nesta sessão?</p>
+           <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl">
+              <p className="text-yellow-500 text-xs font-bold uppercase tracking-widest text-center">Atenção: Esta escolha não pode ser alterada posteriormente.</p>
+           </div>
         </motion.div>
 
         <div className="grid gap-6">

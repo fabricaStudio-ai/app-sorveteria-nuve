@@ -393,7 +393,7 @@ export default function Admin() {
       // Only show approved online payments OR manual payment methods (WhatsApp, Cash, Pix on delivery)
       const ordersData = allOrdersData.filter(o => {
         // Online payments must be approved
-        if (o.paymentMethod === 'online') {
+        if (o.paymentMethodId === 'mercadopago') {
           return o.paymentStatus === 'approved' || o.paymentApproved;
         }
         // Manual/Delivery methods always show so manager can handle them
