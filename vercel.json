@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/**/*": {
-      "includeFiles": "{dist/server.cjs,firebase-applet-config.json}"
+      "includeFiles": "dist/**/*"
     }
   },
   "rewrites": [
