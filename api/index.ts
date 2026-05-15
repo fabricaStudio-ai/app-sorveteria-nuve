@@ -1,3 +1,3 @@
-import { app } from '../server';
+const { app } = require('../dist/server.cjs');
 
 export default app;
