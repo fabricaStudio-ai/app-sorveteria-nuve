@@ -55,12 +55,14 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         pointsDiscount: usePoints ? pointsDiscount : 0,
         pointsEarned: pointsToEarn,
         deliveryMethod: deliveryType,
-        deliveryAddress: deliveryType === 'delivery' ? {
-          street: address,
-          number: '',
-          neighborhood: '',
-          city: '',
-        } : undefined,
+        ...(deliveryType === 'delivery' && {
+          deliveryAddress: {
+            street: address,
+            number: '',
+            neighborhood: '',
+            city: '',
+          }
+        }),
         status: method === 'online' ? 'pending_payment' : 'received',
         paymentMethodId: method === 'online' ? 'mercadopago' : 'whatsapp',
         paymentStatus: method === 'whatsapp' ? 'pending' : 'pending',
