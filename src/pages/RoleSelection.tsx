@@ -28,8 +28,7 @@ export default function RoleSelection() {
         </motion.div>
 
         <div className="grid gap-6">
-           {profile?.isAdmin && (
-             <motion.button
+           <motion.button
                initial={{ opacity: 0, x: -20 }}
                animate={{ opacity: 1, x: 0 }}
                transition={{ delay: 0.1 }}
@@ -44,7 +43,6 @@ export default function RoleSelection() {
                    <p className="text-xs text-white/30 uppercase font-black tracking-widest">Acesso total ao painel</p>
                 </div>
              </motion.button>
-           )}
 
            <motion.button
              initial={{ opacity: 0, x: 20 }}
