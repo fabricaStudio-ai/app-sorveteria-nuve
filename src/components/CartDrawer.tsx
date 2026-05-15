@@ -55,14 +55,15 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         pointsDiscount: usePoints ? pointsDiscount : 0,
         pointsEarned: pointsToEarn,
         deliveryMethod: deliveryType,
-        ...(deliveryType === 'delivery' && {
+        ...(deliveryType === 'delivery' ? {
           deliveryAddress: {
-            street: address,
-            number: '',
-            neighborhood: '',
-            city: '',
+            street: address || 'Não informado',
+            number: 'S/N',
+            neighborhood: 'Não informado',
+            city: 'Não informado',
+            zipCode: '00000-000',
           }
-        }),
+        } : {}),
         status: method === 'online' ? 'pending_payment' : 'received',
         paymentMethodId: method === 'online' ? 'mercadopago' : 'whatsapp',
         paymentStatus: method === 'whatsapp' ? 'pending' : 'pending',
