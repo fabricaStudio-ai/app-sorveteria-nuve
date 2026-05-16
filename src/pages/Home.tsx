@@ -28,39 +28,54 @@ export default function Home() {
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
-        let data: Product[] = [];
+        let allProducts: Product[] = [];
         const storesSnap = await getDocs(collection(db, 'stores'));
+        
         if (!storesSnap.empty) {
-          const storeId = storesSnap.docs[0].id;
-          const snap = await getDocs(query(collection(db, 'stores', storeId, 'products'), limit(15)));
-          data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        } else {
-          const snap = await getDocs(query(collection(db, 'products'), limit(15)));
-          data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+          await Promise.all(storesSnap.docs.map(async (storeDoc) => {
+            const snap = await getDocs(query(collection(db, 'stores', storeDoc.id, 'products'), limit(15)));
+            const storeProducts = snap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id } as Product));
+            allProducts = [...allProducts, ...storeProducts];
+          }));
         }
         
-        setDbProducts(data);
-        setFeaturedProducts(data.filter(p => p.isBestSeller).slice(0, 3));
-        setPromoProducts(data.filter(p => p.category === 'promocao'));
-        setCombos(data.filter(p => p.category === 'combos'));
-
-        // Fetch real promotions from 'promotions' collection
-        try {
-          let promoSnap;
-          if (!storesSnap.empty) {
-             const storeId = storesSnap.docs[0].id;
-             promoSnap = await getDocs(query(collection(db, 'stores', storeId, 'promotions'), where('isActive', '==', true), limit(5)));
-          } else {
-             promoSnap = await getDocs(query(collection(db, 'promotions'), where('isActive', '==', true), limit(5)));
+        // Root fallback
+        const rootSnap = await getDocs(query(collection(db, 'products'), limit(15)));
+        rootSnap.docs.forEach(doc => {
+          if (!allProducts.find(p => p.id === doc.id)) {
+            allProducts.push({ id: doc.id, ...doc.data() } as Product);
           }
+        });
+        
+        setDbProducts(allProducts);
+        setFeaturedProducts(allProducts.filter(p => p.isBestSeller).slice(0, 3));
+        setPromoProducts(allProducts.filter(p => p.category === 'promocao'));
+        setCombos(allProducts.filter(p => p.category === 'combos'));
+
+        // Fetch real promotions from all stores
+        try {
+          let allPromos: any[] = [];
+          if (!storesSnap.empty) {
+            await Promise.all(storesSnap.docs.map(async (storeDoc) => {
+              const promoSnap = await getDocs(query(collection(db, 'stores', storeDoc.id, 'promotions'), where('isActive', '==', true), limit(5)));
+              allPromos = [...allPromos, ...promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id }))];
+            }));
+          }
+          
+          const rootPromoSnap = await getDocs(query(collection(db, 'promotions'), where('isActive', '==', true), limit(5)));
+          rootPromoSnap.docs.forEach(doc => {
+            if (!allPromos.find(p => p.id === doc.id)) {
+              allPromos.push({ id: doc.id, ...doc.data() });
+            }
+          });
            
-          setActiveOffers(promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+          setActiveOffers(allPromos);
         } catch (err) {
           console.error("Error fetching active offers:", err);
           setActiveOffers([]);
         }
       } catch (e) {
-        console.error(e);
+        console.error("Error fetching home data:", e);
         setFeaturedProducts([]);
         setPromoProducts([]);
         setActiveOffers([]);

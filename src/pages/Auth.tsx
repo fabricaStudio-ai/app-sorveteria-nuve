@@ -169,7 +169,7 @@ export default function Auth() {
           <p className="text-white/40 text-sm mt-3 font-medium">
             {mode === 'login' 
               ? 'Entre para continuar seu pedido.' 
-              : 'Junte-se à nossa comunidade de lanches.'}
+              : 'Junte-se à nossa comunidade de amantes de sorvete.'}
           </p>
         </motion.div>
 

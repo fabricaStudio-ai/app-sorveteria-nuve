@@ -30,6 +30,7 @@ export const CATEGORIES: Category[] = [
   { id: 'sorvetes', name: 'Sorvetes', icon: '🍦' },
   { id: 'milkshakes', name: 'Milkshakes', icon: '🥤' },
   { id: 'acai', name: 'Açaí', icon: '🥣' },
+  { id: 'bebidas', name: 'Bebidas', icon: '🥤' },
   { id: 'combos', name: 'Combos', icon: '🎁' },
 ];
 

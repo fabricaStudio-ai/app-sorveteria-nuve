@@ -20,21 +20,35 @@ export default function Menu() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        let snap;
-        // Try to find the first store to fetch products from
+        setLoading(true);
+        let allFetchedProducts: Product[] = [];
+        
+        // Try to find all stores to fetch products from
         const storesSnap = await getDocs(collection(db, 'stores'));
         if (!storesSnap.empty) {
-          const storeId = storesSnap.docs[0].id;
-          snap = await getDocs(collection(db, 'stores', storeId, 'products'));
-          console.log(`Fetched ${snap.size} products from store ${storeId}`);
-        } else {
-          // Fallback to root products for older data or if no store yet
-          snap = await getDocs(collection(db, 'products'));
-          console.log(`Fetched ${snap.size} products from root`);
+          // Fetch from all stores to be safe during transition
+          await Promise.all(storesSnap.docs.map(async (storeDoc) => {
+            const productsSnap = await getDocs(collection(db, 'stores', storeDoc.id, 'products'));
+            const storeProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id } as Product));
+            allFetchedProducts = [...allFetchedProducts, ...storeProducts];
+          }));
+          console.log(`Fetched ${allFetchedProducts.length} products from ${storesSnap.size} stores`);
         }
         
-        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-        setAllProducts(data);
+        // Also fetch from root products to ensure no data is lost during transition
+        const rootSnap = await getDocs(collection(db, 'products'));
+        if (!rootSnap.empty) {
+          const rootProducts = rootSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+          // Filter out duplicates if any (by ID)
+          rootProducts.forEach(rp => {
+            if (!allFetchedProducts.find(ap => ap.id === rp.id)) {
+              allFetchedProducts.push(rp);
+            }
+          });
+          console.log(`Added ${rootSnap.size} products from root`);
+        }
+        
+        setAllProducts(allFetchedProducts);
       } catch (e) {
         console.error("Error fetching products:", e);
         setAllProducts([]);
