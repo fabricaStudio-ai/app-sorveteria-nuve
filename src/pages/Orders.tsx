@@ -12,38 +12,30 @@ export default function Orders() {
   const [status, setStatus] = useState<'loading' | 'success' | 'pending' | 'error'>('loading');
   const { clearCart } = useApp();
 
+  const isSuccessParam = searchParams.get('success');
+  const isPendingParam = searchParams.get('pending');
+  const externalRef = searchParams.get('external_reference');
+  const displayOrderId = searchParams.get('orderId') || (externalRef ? externalRef.split(':').pop() : null);
+  const displayStoreId = (externalRef && externalRef.includes(':')) ? externalRef.split(':')[0] : 'default';
+
   useEffect(() => {
     const processPayment = async () => {
-      const isSuccess = searchParams.get('success');
-      const isPending = searchParams.get('pending');
-      const orderIdParam = searchParams.get('orderId');
-      const externalRef = searchParams.get('external_reference');
-      
-      const orderId = orderIdParam || (externalRef ? externalRef.split(':').pop() : null);
-
-      if (!orderId && !isSuccess && !isPending && !externalRef) {
+      if (!displayOrderId && !isSuccessParam && !isPendingParam && !externalRef) {
         setStatus('success'); // General orders page view
         return;
       }
 
-      if (isSuccess === 'true' || searchParams.get('status') === 'approved') {
+      if (isSuccessParam === 'true' || searchParams.get('status') === 'approved') {
         clearCart();
         setStatus('success');
         
-        // If we have an order ID, we can optionally redirect to tracking
-        if (externalRef && externalRef.includes(':')) {
-           const [sId, oId] = externalRef.split(':');
-           setTimeout(() => navigate(`/tracking/${sId}/${oId}`), 3000);
-        } else if (orderId) {
-          setTimeout(() => navigate(`/tracking/default/${orderId}`), 3000);
+        if (displayOrderId) {
+           setTimeout(() => navigate(`/tracking/${displayStoreId}/${displayOrderId}`), 3000);
         }
-      } else if (isPending === 'true' || searchParams.get('status') === 'pending') {
+      } else if (isPendingParam === 'true' || searchParams.get('status') === 'pending') {
         setStatus('pending');
-        if (externalRef && externalRef.includes(':')) {
-           const [sId, oId] = externalRef.split(':');
-           setTimeout(() => navigate(`/tracking/${sId}/${oId}`), 3000);
-        } else if (orderId) {
-          setTimeout(() => navigate(`/tracking/default/${orderId}`), 3000);
+        if (displayOrderId) {
+           setTimeout(() => navigate(`/tracking/${displayStoreId}/${displayOrderId}`), 3000);
         }
       } else {
         setStatus('success');
@@ -51,7 +43,7 @@ export default function Orders() {
     };
 
     processPayment();
-  }, [searchParams, clearCart]);
+  }, [searchParams, clearCart, navigate, displayOrderId, displayStoreId, externalRef, isSuccessParam, isPendingParam]);
 
   if (status === 'loading') {
     return (
@@ -74,24 +66,24 @@ export default function Orders() {
      )
   }
 
-  if (searchParams.get('orderId')) {
+  if (displayOrderId) {
      return (
         <div className="p-8 text-center min-h-[60vh] flex flex-col items-center justify-center">
           {status === 'success' ? (
             <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center">
                <CheckCircle2 className="w-20 h-20 text-[#25D366] mb-6" />
                <h2 className="text-3xl font-black uppercase tracking-widest text-white mb-4">Pedido Confirmado!</h2>
-               <p className="text-white/60 mb-8">Seu pagamento foi aprovado e a loja já recebeu seu pedido. O preparo começará em breve.</p>
+               <p className="text-white/60 mb-8">Seu pagamento foi aprovado e a loja já recebeu seu pedido. O acompanhamento abrirá em instantes...</p>
             </motion.div>
           ) : (
             <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="flex flex-col items-center">
                <Clock className="w-20 h-20 text-yellow-500 mb-6" />
                <h2 className="text-3xl font-black uppercase tracking-widest text-white mb-4">Pagamento Pendente</h2>
-               <p className="text-white/60 mb-8">Estamos aguardando a confirmação do pagamento. Você receberá atualizações em breve.</p>
+               <p className="text-white/60 mb-8">Estamos aguardando a confirmação do pagamento. Você será redirecionado em instantes...</p>
             </motion.div>
           )}
-          <button onClick={() => navigate('/')} className="px-8 py-4 bg-primary text-dark font-black uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-colors">
-            Voltar ao Início
+          <button onClick={() => navigate(`/tracking/${displayStoreId}/${displayOrderId}`)} className="px-8 py-4 bg-primary text-dark font-black uppercase tracking-widest rounded-xl hover:bg-primary/90 transition-colors">
+            Acompanhar Pedido
           </button>
         </div>
      );

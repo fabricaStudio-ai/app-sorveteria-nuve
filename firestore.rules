@@ -60,6 +60,10 @@ service cloud.firestore {
     // RULES
     // -------------------------------------------------------------------------
 
+    match /{path=**}/orders/{orderId} {
+      allow read, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
     match /stores/{storeId} {
       allow read: if true;
       allow write: if isOwner(storeId) || isAdmin();

@@ -61,7 +61,7 @@ export default function OrderTracking() {
     });
 
     return () => unsubscribe();
-  }, [orderId, prevStatus]);
+  }, [orderId, storeId, prevStatus]);
 
   if (loading) {
     return (

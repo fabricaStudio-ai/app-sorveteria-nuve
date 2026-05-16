@@ -288,6 +288,7 @@ app.post("/api/create-preference", async (req, res) => {
         ].filter(Boolean).join(" | "),
       })),
       external_reference: storeId && orderId ? `${storeId}:${orderId}` : orderId,
+      notification_url: `${appUrl}/api/webhooks/mercadopago`,
       back_urls: {
         success: success_url || `${appUrl}/orders?success=true`,
         failure: failure_url || `${appUrl}/menu`,

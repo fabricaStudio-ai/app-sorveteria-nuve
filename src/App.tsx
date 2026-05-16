@@ -19,6 +19,7 @@ import Auth from './pages/Auth';
 import RoleSelection from './pages/RoleSelection';
 import Settings from './pages/Settings';
 import Orders from './pages/Orders';
+import OrderHistory from './pages/OrderHistory';
 import OrderTracking from './pages/OrderTracking';
 
 // Empty pages for routing demonstration
@@ -128,6 +129,7 @@ function AppContent() {
               <Route path="/menu" element={userRole === 'admin' ? <Navigate to="/admin?tab=products" /> : <Menu />} />
               <Route path="/promos" element={userRole === 'admin' ? <Navigate to="/admin?tab=promotions" /> : <Promos />} />
               <Route path="/orders" element={userRole === 'admin' ? <Navigate to="/admin?tab=orders" /> : <Orders />} />
+              <Route path="/history" element={<OrderHistory />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={userRole === 'admin' ? <Admin /> : <Navigate to="/" />} />

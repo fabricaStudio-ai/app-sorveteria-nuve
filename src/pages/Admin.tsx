@@ -757,7 +757,10 @@ export default function Admin() {
   // New Dynamic Stats for Overview
   const today = new Date().toISOString().split('T')[0];
   const ordersToday = (orders || []).filter(o => o && o.createdAt && typeof o.createdAt === 'string' && o.createdAt.startsWith(today));
-  const incomeToday = (transactions || [])
+  const incomeToday = (ordersToday || [])
+    .filter(o => o && o.status !== 'cancelled' && o.status !== 'pending_payment')
+    .reduce((acc, o) => acc + (o.total || 0), 0) +
+    (transactions || [])
     .filter(t => t && t.type === 'income' && t.date && typeof t.date === 'string' && t.date.startsWith(today))
     .reduce((acc, t) => acc + (t.amount || 0), 0);
   
@@ -1360,7 +1363,7 @@ export default function Admin() {
                                  <button 
                                    onClick={() => {
                                       if(confirm("Confirmar que o pagamento foi recebido?")) {
-                                        updateDoc(doc(db, 'orders', order.id), { 
+                                        updateDoc(doc(db, 'stores', store.id, 'orders', order.id), { 
                                           status: 'received',
                                           paymentApproved: true, 
                                           paymentStatus: 'approved' 
