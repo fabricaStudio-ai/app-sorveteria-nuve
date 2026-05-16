@@ -80,7 +80,7 @@ import { cn } from '../lib/utils';
 const COLORS = ['#00f2ff', '#7000ff', '#ff00d4', '#ff8c00', '#00ff8c'];
 
 export default function Admin() {
-  const { user, profile, store, loading: authLoading, setUserRole } = useApp();
+  const { user, profile, loading: authLoading, setUserRole } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
@@ -163,7 +163,7 @@ export default function Admin() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [orderFilter, setOrderFilter] = useState<'Todos' | 'Pagamento' | 'Novos' | 'Preparando' | 'Prontos' | 'Enviados' | 'Finalizados' | 'Cancelados'>('Todos');
+  const [orderFilter, setOrderFilter] = useState<'Todos' | 'Pendentes' | 'Preparando' | 'Prontos' | 'Finalizados' | 'Cancelados' | 'Aprovação'>('Todos');
   const [orderToDelete, setOrderToDelete] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -380,10 +380,8 @@ export default function Admin() {
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
     // Real-time Orders Listener (Preparation Queue)
-    if (!store?.id) return;
-
     const ordersQuery = query(
-      collection(db, 'stores', store.id, 'orders'),
+      collection(db, 'orders'),
       orderBy('createdAt', 'desc'),
       limit(50)
     );
@@ -407,8 +405,8 @@ export default function Admin() {
       // Check for new orders to trigger notification
       if (ordersData.length > prevOrdersCount.current && prevOrdersCount.current !== 0) {
         const latestOrder = ordersData[0];
-        // Only notify if it's a new or received order AND it's not from the admin
-        if (latestOrder && (latestOrder.status === 'pending_payment' || latestOrder.status === 'received') && latestOrder.customerEmail !== 'fabricasoftwareai@gmail.com') {
+        // Only notify if it's a pending order AND it's not from the admin
+        if (latestOrder && latestOrder.status === 'pending' && latestOrder.customerEmail !== 'fabricasoftwareai@gmail.com') {
           setNewOrderNotification(latestOrder);
           audioRef.current?.play().catch(e => console.log('Audio play blocked'));
         }
@@ -423,25 +421,23 @@ export default function Admin() {
   }, [profile]);
 
   const deleteOrder = async (id: string) => {
-    if (!store?.id) return;
     console.log("Attempting to delete order:", id);
     try {
-      await deleteDoc(doc(db, 'stores', store.id, 'orders', id));
+      await deleteDoc(doc(db, 'orders', id));
       console.log("Order deleted successfully:", id);
       setOrderToDelete(null); // Clear confirmation state
     } catch (e) {
       console.error("Delete order error:", e);
-      handleFirestoreError(e, OperationType.DELETE, `stores/${store.id}/orders/${id}`);
+      handleFirestoreError(e, OperationType.DELETE, `orders/${id}`);
     }
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
-    if (!store?.id) return;
     try {
-      const orderRef = doc(db, 'stores', store.id, 'orders', orderId);
+      const orderRef = doc(db, 'orders', orderId);
       
       // Get current order data to handle points
-      const ordersSnap = await getDocs(query(collection(db, 'stores', store.id, 'orders'), where('__name__', '==', orderId), limit(1)));
+      const ordersSnap = await getDocs(query(collection(db, 'orders'), where('__name__', '==', orderId), limit(1)));
       const orderData = !ordersSnap.empty ? ordersSnap.docs[0].data() as Order : null;
 
       await updateDoc(orderRef, { status: newStatus });
@@ -467,19 +463,18 @@ export default function Admin() {
         }
       }
     } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `stores/${store.id}/orders/${orderId}`);
+      handleFirestoreError(e, OperationType.UPDATE, `orders/${orderId}`);
     }
   };
 
   const fetchProducts = async () => {
-    if (!store?.id) return;
     setLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, 'stores', store.id, 'products'));
+      const querySnapshot = await getDocs(collection(db, 'products'));
       const prods = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
       setProducts(prods);
     } catch (e) {
-      handleFirestoreError(e, OperationType.GET, `stores/${store.id}/products`);
+      handleFirestoreError(e, OperationType.GET, 'products');
     } finally {
       setLoading(false);
     }
@@ -537,7 +532,7 @@ export default function Admin() {
   };
 
   const handleSaveProduct = async () => {
-    if (!productForm.name || !productForm.price || !store?.id) return;
+    if (!productForm.name || !productForm.price) return;
 
     try {
       const data = {
@@ -550,9 +545,9 @@ export default function Admin() {
       };
 
       if (editingProduct) {
-        await setDoc(doc(db, 'stores', store.id, 'products', editingProduct.id), data);
+        await setDoc(doc(db, 'products', editingProduct.id), data);
       } else {
-        await addDoc(collection(db, 'stores', store.id, 'products'), {
+        await addDoc(collection(db, 'products'), {
           ...data,
           createdAt: new Date().toISOString(),
           rating: 5
@@ -924,7 +919,7 @@ export default function Admin() {
                   )}
                 </div>
                 <h2 className="text-xl font-serif italic font-bold">
-                  {profile?.appName || 'App'} Admin
+                  {profile?.appName || 'Nuvê'} Admin
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -1150,7 +1145,7 @@ export default function Admin() {
                   >
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                        <div>
-                          <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Catálogo {profile?.appName || ''}</h1>
+                          <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Catálogo Nuvê</h1>
                           <p className="text-white/40 text-sm mt-3 font-medium">Controle total sobre seus itens e sabores artesanais.</p>
                        </div>
                        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
@@ -1202,7 +1197,7 @@ export default function Admin() {
                                </button>
                                <button 
                                 onClick={() => {
-                                  if(confirm(`Deseja apagar este sabor de ${profile?.appName || 'seu catálogo'}?`)) {
+                                  if(confirm("Deseja apagar este sabor da Nuvê?")) {
                                     deleteDoc(doc(db, 'products', p.id)).then(fetchProducts);
                                   }
                                 }}
@@ -1247,7 +1242,7 @@ export default function Admin() {
                           <p className="text-white/40 text-sm mt-3 font-medium">Pedidos com pagamento aprovado.</p>
                        </div>
                        <div className="flex gap-4 p-1 glass rounded-2xl border-white/5 overflow-x-auto scrollbar-none">
-                          {['Todos', 'Pagamento', 'Novos', 'Preparando', 'Prontos', 'Enviados', 'Finalizados', 'Cancelados'].map((filter) => (
+                          {['Todos', 'Pendentes', 'Preparando', 'Prontos', 'Finalizados', 'Cancelados', 'Aprovação'].map((filter) => (
                             <button 
                               key={filter} 
                               onClick={() => setOrderFilter(filter as any)}
@@ -1261,15 +1256,14 @@ export default function Admin() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                        {orders.filter(o => {
-                         if (orderFilter === 'Pagamento') return o.status === 'pending_payment';
-                         if (orderFilter === 'Novos') return o.status === 'received';
+                         if (orderFilter === 'Aprovação') return !o.paymentApproved;
+                         if (!o.paymentApproved) return false; // Hide unapproved from other tabs
+                         
+                         if (orderFilter === 'Pendentes') return o.status === 'pending';
                          if (orderFilter === 'Preparando') return o.status === 'preparing';
-                         if (orderFilter === 'Prontos') return o.status === 'ready_for_pickup';
-                         if (orderFilter === 'Enviados') return o.status === 'shipped';
-                         if (orderFilter === 'Finalizados') return o.status === 'completed';
-                         if (orderFilter === 'Cancelados') return o.status === 'cancelled';
+                         if (orderFilter === 'Prontos') return o.status === 'ready';
                          return o.status !== 'completed' && o.status !== 'cancelled';
-                       }).map((order) => (
+                       }).map((order, idx) => (
                          <motion.div 
                            key={order.id}
                            layout
@@ -1277,7 +1271,7 @@ export default function Admin() {
                            animate={{ opacity: 1, scale: 1 }}
                            className={cn(
                              "glass rounded-[3rem] p-8 border-white/5 relative overflow-hidden transition-all duration-500",
-                             order.status === 'ready_for_pickup' || order.status === 'shipped' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5"
+                             order.status === 'ready' ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/5"
                            )}
                          >
                             <div className="flex justify-between items-start mb-6">
@@ -1317,18 +1311,11 @@ export default function Admin() {
                                   </div>
                                   <span className={cn(
                                     "px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border",
-                                    order.status === 'pending_payment' ? "bg-orange-500/10 text-orange-400 border-orange-500/20" :
-                                    order.status === 'received' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                                    order.status === 'pending' ? "bg-orange-500/10 text-orange-400 border-orange-500/20" :
                                     order.status === 'preparing' ? "bg-primary/10 text-primary border-primary/20 animate-pulse" :
-                                    order.status === 'shipped' || order.status === 'ready_for_pickup' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                                    "bg-white/5 text-white/20 border-white/10"
+                                    "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                   )}>
-                                     {order.status === 'pending_payment' ? 'Pagamento' : 
-                                      order.status === 'received' ? 'Novo' : 
-                                      order.status === 'preparing' ? 'Preparando' : 
-                                      order.status === 'shipped' ? 'Enviado' :
-                                      order.status === 'ready_for_pickup' ? 'Pronto' :
-                                      order.status === 'completed' ? 'Finalizado' : 'Cancelado'}
+                                     {order.status === 'pending' ? 'Pendente' : order.status === 'preparing' ? 'Preparando' : 'Pronto'}
                                   </span>
                                </div>
                             </div>
@@ -1356,15 +1343,11 @@ export default function Admin() {
                           </div>
 
                           <div className="grid grid-cols-2 gap-3 relative z-10">
-                               {order.status === 'pending_payment' && (
+                               {!order.paymentApproved && (
                                  <button 
                                    onClick={() => {
                                       if(confirm("Confirmar que o pagamento foi recebido?")) {
-                                        updateDoc(doc(db, 'orders', order.id), { 
-                                          status: 'received',
-                                          paymentApproved: true, 
-                                          paymentStatus: 'approved' 
-                                        });
+                                        updateDoc(doc(db, 'orders', order.id), { paymentApproved: true, paymentStatus: 'approved' });
                                       }
                                    }}
                                    className="col-span-2 bg-emerald-500 text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
@@ -1373,7 +1356,7 @@ export default function Admin() {
                                  </button>
                                )}
 
-                               {order.status === 'received' && (
+                               {order.paymentApproved && order.status === 'pending' && (
                                  <button 
                                    onClick={() => updateOrderStatus(order.id, 'preparing')}
                                    className="col-span-2 bg-primary text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
@@ -1381,17 +1364,17 @@ export default function Admin() {
                                     <ChefHat className="w-4 h-4" /> Começar Preparo
                                  </button>
                                )}
-                               {order.status === 'preparing' && (
+                               {order.paymentApproved && order.status === 'preparing' && (
                                  <button 
-                                   onClick={() => updateOrderStatus(order.id, order.deliveryMethod === 'delivery' ? 'shipped' : 'ready_for_pickup')}
+                                   onClick={() => updateOrderStatus(order.id, 'ready')}
                                    className="col-span-2 bg-secondary text-white py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
                                  >
-                                    <Bell className="w-4 h-4" /> {order.deliveryMethod === 'delivery' ? 'Marcar como Enviado' : 'Marcar como Pronto'}
+                                    <Bell className="w-4 h-4" /> Marcar como Pronto
                                  </button>
                                )}
-                               {(order.status === 'shipped' || order.status === 'ready_for_pickup') && (
+                               {order.paymentApproved && order.status === 'ready' && (
                                  <>
-                                   {order.deliveryMethod === 'delivery' && !order.lalamoveStatus && profile?.lalamoveConnected && (
+                                   {order.deliveryType === 'delivery' && !order.lalamoveStatus && profile?.lalamoveConnected && (
                                      <button 
                                        onClick={() => handleCallLalamove(order)}
                                        className="col-span-2 bg-[#F37021] text-white py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all mb-2"
@@ -1408,17 +1391,17 @@ export default function Admin() {
                                      onClick={() => updateOrderStatus(order.id, 'completed')}
                                      className="col-span-2 bg-emerald-500 text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
                                    >
-                                      <CheckCircle2 className="w-4 h-4" /> Finalizar Pedido
+                                      <CheckCircle2 className="w-4 h-4" /> Entregar Pedido
                                    </button>
                                  </>
                                )}
                             </div>
                             
                             <div className={cn(
-                               "absolute -bottom-20 -right-20 w-48 h-48 blur-[80px] opacity-10 rounded-full",
-                               order.status === 'preparing' ? "bg-primary" : "bg-white"
-                             )} />
-                        </motion.div>
+                              "absolute -bottom-20 -right-20 w-48 h-48 blur-[80px] opacity-10 rounded-full",
+                              order.status === 'preparing' ? "bg-primary" : "bg-white"
+                            )} />
+                       </motion.div>
                        ))}
 
                        {orders.length === 0 && (
@@ -1546,7 +1529,7 @@ export default function Admin() {
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                        <div>
                           <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Financeiro</h1>
-                          <p className="text-white/40 text-sm mt-3 font-medium">Gestão de fluxo de caixa e rentabilidade do {profile?.appName || 'seu app'}.</p>
+                          <p className="text-white/40 text-sm mt-3 font-medium">Gestão de fluxo de caixa e rentabilidade da Nuvê.</p>
                        </div>
                        <button 
                          onClick={() => setShowAddTransaction(true)}
@@ -1670,7 +1653,7 @@ export default function Admin() {
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                        <div>
                           <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Formas de Pagamento</h1>
-                          <p className="text-white/40 text-sm mt-3 font-medium">Configure como seus clientes podem pagar no {profile?.appName || 'seu app'}.</p>
+                          <p className="text-white/40 text-sm mt-3 font-medium">Configure como seus clientes podem pagar na Nuvê.</p>
                        </div>
                        <button 
                          onClick={() => setShowAddPayment(true)}
@@ -2468,7 +2451,7 @@ export default function Admin() {
                 </div>
               </div>
               <div className="absolute bottom-20 left-0 right-0 flex justify-center opacity-40">
-                 <p className="text-2xl font-black text-white tracking-[0.5em] uppercase">{profile?.appName || 'Catálogo'}</p>
+                 <p className="text-2xl font-black text-white tracking-[0.5em] uppercase">{profile?.appName || 'Sorveteria Nuvê'}</p>
               </div>
             </>
           )}

@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from
 import { AnimatePresence, motion } from 'motion/react';
 import { ShoppingBag } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
-import { THEME_PALETTES } from './constants';
 import { cn } from './lib/utils';
 import Splash from './components/Splash';
 import BottomNav from './components/BottomNav';
@@ -19,30 +18,12 @@ import Auth from './pages/Auth';
 import RoleSelection from './pages/RoleSelection';
 import Settings from './pages/Settings';
 import Orders from './pages/Orders';
-import OrderTracking from './pages/OrderTracking';
 
 // Empty pages for routing demonstration
 const Promos = () => <div className="p-8 text-center text-white/40">Promoções em breve...</div>;
 
 function AppContent() {
   const { isSplashVisible, cart, profile, loading, user, userRole } = useApp();
-  
-  React.useEffect(() => {
-    if (profile?.themeColor === 'custom') {
-      document.documentElement.style.setProperty('--primary', profile.themePrimary || '#00f2ff');
-      document.documentElement.style.setProperty('--secondary', profile.themeSecondary || '#a855f7');
-      document.documentElement.style.setProperty('--background', profile.themeBackground || '#050505');
-    } else {
-      // Find the selected palette and apply it if not custom
-      const palette = THEME_PALETTES.find(p => p.id === (profile?.themeColor || 'default'));
-      if (palette) {
-        document.documentElement.style.setProperty('--primary', palette.primary);
-        document.documentElement.style.setProperty('--secondary', palette.secondary);
-        document.documentElement.style.setProperty('--background', palette.background || '#050505');
-      }
-    }
-  }, [profile]);
-
   const [isCartOpen, setIsCartOpen] = React.useState(false);
   const [notification, setNotification] = React.useState({ show: false, message: '' });
   const location = useLocation();
@@ -131,7 +112,6 @@ function AppContent() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={userRole === 'admin' ? <Admin /> : <Navigate to="/" />} />
-              <Route path="/tracking/:orderId" element={<OrderTracking />} />
             </Routes>
           </div>
         </AnimatePresence>

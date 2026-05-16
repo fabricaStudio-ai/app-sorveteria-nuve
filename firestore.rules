@@ -45,8 +45,7 @@ service cloud.firestore {
     function isValidOrder(data) {
       return data.items is list && 
              data.total is number && 
-             data.status in ['pending_payment', 'received', 'preparing', 'shipped', 'ready_for_pickup', 'completed', 'cancelled'] &&
-             data.deliveryMethod in ['delivery', 'pickup'] &&
+             data.status in ['pending', 'preparing', 'ready', 'completed', 'cancelled'] &&
              data.createdAt is string;
     }
 
@@ -60,19 +59,6 @@ service cloud.firestore {
     // RULES
     // -------------------------------------------------------------------------
 
-    match /stores/{storeId} {
-      allow read, write: if isOwner(storeId) || isAdmin();
-
-      match /products/{productId} {
-        allow read: if true;
-        allow write: if isOwner(storeId) || isAdmin();
-      }
-
-      match /orders/{orderId} {
-        allow read, write: if isOwner(storeId) || isAdmin();
-      }
-    }
-    
     match /promotions/{promoId} {
       allow read: if true;
       allow write: if isAdmin();
@@ -106,20 +92,13 @@ service cloud.firestore {
     }
 
     match /orders/{orderId} {
-      // Allow read if owner or admin
-      allow read: if (isSignedIn() && (resource == null || resource.data.userId == request.auth.uid)) || isAdmin();
-      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      // Restricted list reads for customers, full read for admins
+      allow read: if (isSignedIn() && existing().get('userId', '') == request.auth.uid) || isAdmin();
       
-      allow create: if isValidOrder(incoming());
+      allow create: if isSignedIn() && isValidOrder(incoming());
       
-      // Admins have full control. Owners can only cancel pending payment orders.
-      allow update: if isAdmin() || (
-        isSignedIn() && 
-        resource.data.userId == request.auth.uid && 
-        incoming().diff(existing()).affectedKeys().hasOnly(['status']) &&
-        incoming().status == 'cancelled' &&
-        existing().status == 'pending_payment'
-      );
+      // Only admins can update status or payment info
+      allow update: if isAdmin();
       
       allow delete: if isAdmin();
     }

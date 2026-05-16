@@ -7,7 +7,6 @@
   
   --color-primary: var(--primary, #00f2ff);
   --color-secondary: var(--secondary, #a855f7);
-  --color-bg: var(--background, #050505);
   --color-dark: #09090b;
   --color-glass: rgba(255, 255, 255, 0.03);
   --color-glass-border: rgba(255, 255, 255, 0.1);
@@ -18,7 +17,7 @@
 
 @layer base {
   body {
-    @apply bg-[color:var(--color-bg)] text-white font-sans antialiased selection:bg-primary/30;
+    @apply bg-dark text-white font-sans antialiased selection:bg-primary/30;
     -webkit-tap-highlight-color: transparent;
   }
 }

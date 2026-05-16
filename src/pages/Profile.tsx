@@ -62,11 +62,16 @@ export default function Profile() {
               </div>
            </div>
 
-           <div className="grid grid-cols-1 gap-4">
+           <div className="grid grid-cols-2 gap-4">
               <div className="glass-dark p-4 rounded-2xl flex flex-col items-center gap-2 border-white/5">
                  {userRole === 'admin' ? <ShieldCheck className="w-5 h-5 text-primary" /> : <ShoppingBag className="w-5 h-5 text-primary" />}
                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">{userRole === 'admin' ? 'Gestor' : 'Pedidos'}</span>
                  <span className="text-lg font-bold">{userRole === 'admin' ? 'Ativo' : '0'}</span>
+              </div>
+              <div className="glass-dark p-4 rounded-2xl flex flex-col items-center gap-2 border-white/5">
+                 <User className="w-5 h-5 text-secondary" />
+                 <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Nível</span>
+                 <span className="text-lg font-bold">Iniciante</span>
               </div>
            </div>
         </div>

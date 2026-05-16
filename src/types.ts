@@ -51,19 +51,12 @@ export interface Order {
   userId?: string;
   items: CartItem[];
   total: number;
-  status: 'pending_payment' | 'received' | 'preparing' | 'shipped' | 'ready_for_pickup' | 'completed' | 'cancelled';
+  status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
-  deliveryMethod: 'delivery' | 'pickup';
-  deliveryAddress?: {
-    street: string;
-    number: string;
-    complement?: string;
-    neighborhood: string;
-    city: string;
-    zipCode: string;
-  };
+  address?: string;
+  deliveryType?: 'delivery' | 'pickup';
   lalamoveStatus?: string;
   lalamoveDriver?: string;
   lalamoveShareLink?: string;
