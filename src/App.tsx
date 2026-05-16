@@ -131,6 +131,7 @@ function AppContent() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/admin" element={userRole === 'admin' ? <Admin /> : <Navigate to="/" />} />
+              <Route path="/tracking/:storeId/:orderId" element={<OrderTracking />} />
               <Route path="/tracking/:orderId" element={<OrderTracking />} />
             </Routes>
           </div>

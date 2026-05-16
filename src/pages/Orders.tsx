@@ -16,18 +16,35 @@ export default function Orders() {
     const processPayment = async () => {
       const isSuccess = searchParams.get('success');
       const isPending = searchParams.get('pending');
-      const orderId = searchParams.get('orderId');
+      const orderIdParam = searchParams.get('orderId');
+      const externalRef = searchParams.get('external_reference');
+      
+      const orderId = orderIdParam || (externalRef ? externalRef.split(':').pop() : null);
 
-      if (!orderId) {
+      if (!orderId && !isSuccess && !isPending && !externalRef) {
         setStatus('success'); // General orders page view
         return;
       }
 
-      if (isSuccess === 'true') {
+      if (isSuccess === 'true' || searchParams.get('status') === 'approved') {
         clearCart();
         setStatus('success');
-      } else if (isPending === 'true') {
+        
+        // If we have an order ID, we can optionally redirect to tracking
+        if (externalRef && externalRef.includes(':')) {
+           const [sId, oId] = externalRef.split(':');
+           setTimeout(() => navigate(`/tracking/${sId}/${oId}`), 3000);
+        } else if (orderId) {
+          setTimeout(() => navigate(`/tracking/default/${orderId}`), 3000);
+        }
+      } else if (isPending === 'true' || searchParams.get('status') === 'pending') {
         setStatus('pending');
+        if (externalRef && externalRef.includes(':')) {
+           const [sId, oId] = externalRef.split(':');
+           setTimeout(() => navigate(`/tracking/${sId}/${oId}`), 3000);
+        } else if (orderId) {
+          setTimeout(() => navigate(`/tracking/default/${orderId}`), 3000);
+        }
       } else {
         setStatus('success');
       }

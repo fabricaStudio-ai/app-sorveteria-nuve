@@ -30,7 +30,7 @@ const STATUS_STEPS = [
 ];
 
 export default function OrderTracking() {
-  const { orderId } = useParams();
+  const { storeId, orderId } = useParams();
   const navigate = useNavigate();
   const { user } = useApp();
   const [order, setOrder] = useState<Order | null>(null);
@@ -40,8 +40,11 @@ export default function OrderTracking() {
 
   useEffect(() => {
     if (!orderId) return;
+    
+    // Default to 'default' store if not provided in URL
+    const sId = storeId || 'default';
 
-    const unsubscribe = onSnapshot(doc(db, 'orders', orderId), (doc) => {
+    const unsubscribe = onSnapshot(doc(db, 'stores', sId, 'orders', orderId), (doc) => {
       if (doc.exists()) {
         const data = doc.data() as Order;
         const newStatus = data.status;
