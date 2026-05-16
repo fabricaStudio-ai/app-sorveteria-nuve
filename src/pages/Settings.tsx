@@ -14,75 +14,49 @@ import { cn } from '../lib/utils';
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { profile, userRole, user, setProfile } = useApp();
-  const [showMPModal, setShowMPModal] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [connecting, setConnecting] = useState(false);
-  
-  const [mpForm, setMpForm] = useState({
-    publicKey: profile?.mpPublicKey || '',
-    accessToken: profile?.mpAccessToken || ''
-  });
-  
-  const [lalamoveForm, setLalamoveForm] = useState({
-    apiKey: profile?.lalamoveApiKey || '',
-    secret: profile?.lalamoveSecret || ''
-  });
-  const [showLalamoveModal, setShowLalamoveModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [savingLalamove, setSavingLalamove] = useState(false);
-  const [profileName, setProfileName] = useState(profile?.name || '');
+  const { profile, userRole, user, setProfile, store, setStore } = useApp();
 
-  const [imgbbConfig, setImgbbConfig] = useState(profile?.imgbbApiKey || '');
-  const [appName, setAppName] = useState(profile?.appName || '');
-  const [appLogo, setAppLogo] = useState(profile?.appLogo || '');
-  const [themeColor, setThemeColor] = useState(profile?.themeColor || 'default');
-  const [themeStructure, setThemeStructure] = useState(profile?.themeStructure || 'modern');
-  const [themePrimary, setThemePrimary] = useState(profile?.themePrimary || '#00f2ff');
-  const [themeSecondary, setThemeSecondary] = useState(profile?.themeSecondary || '#a855f7');
-  const [themeBackground, setThemeBackground] = useState(profile?.themeBackground || '#050505');
-  const [showBrandingModal, setShowBrandingModal] = useState(false);
-  const [savingBranding, setSavingBranding] = useState(false);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
+  // ...
 
   useEffect(() => {
+    if (store) {
+      setAppName(store.name || '');
+      setAppLogo(store.logoUrl || '');
+      setThemeColor(store.themeColor || 'default');
+      setThemeStructure(store.themeStructure || 'modern');
+      setThemePrimary(store.themePrimary || '#00f2ff');
+      setThemeSecondary(store.themeSecondary || '#a855f7');
+      setThemeBackground(store.themeBackground || '#050505');
+      setImgbbConfig(store.imgbbApiKey || '');
+      // ... keep other profile fields if still needed from profile
+    }
     if (profile) {
       if (profile.name) setProfileName(profile.name);
-      setAppName(profile.appName || '');
-      setAppLogo(profile.appLogo || '');
-      setThemeColor(profile.themeColor || 'default');
-      setThemeStructure(profile.themeStructure || 'modern');
-      setThemePrimary(profile.themePrimary || '#00f2ff');
-      setThemeSecondary(profile.themeSecondary || '#a855f7');
-      setThemeBackground(profile.themeBackground || '#050505');
-      setImgbbConfig(profile.imgbbApiKey || '');
-      setMpForm({
-        publicKey: profile.mpPublicKey || '',
-        accessToken: profile.mpAccessToken || ''
-      });
-      setLalamoveForm({
-        apiKey: profile.lalamoveApiKey || '',
-        secret: profile.lalamoveSecret || ''
-      });
+      // ... keep existing profile-specific fields
     }
-  }, [profile]);
+  }, [profile, store]);
 
   const handleUpdateBranding = async () => {
     if (!user) return;
     setSavingBranding(true);
     try {
       const updateData = {
-        appName: appName,
-        appLogo: appLogo,
+        name: appName,
+        logoUrl: appLogo,
         themeColor: themeColor,
         themeStructure: themeStructure,
         themePrimary: themePrimary,
         themeSecondary: themeSecondary,
         themeBackground: themeBackground,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        ownerId: user.uid // Ensure ownerId is set
       };
-      await updateDoc(doc(db, 'profiles', user.uid), updateData);
-      setProfile(prev => prev ? { ...prev, ...updateData } : null);
+
+      // Ensure store document exists
+      const storeRef = doc(db, 'stores', user.uid);
+      await setDoc(storeRef, updateData, { merge: true });
+      
+      setStore(prev => prev ? { ...prev, ...updateData } : { id: user.uid, ...updateData, name: appName, ownerId: user.uid } as any);
       setShowBrandingModal(false);
     } catch (e) {
       console.error("Error saving branding:", e);

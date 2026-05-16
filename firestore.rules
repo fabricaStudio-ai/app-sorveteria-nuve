@@ -60,6 +60,19 @@ service cloud.firestore {
     // RULES
     // -------------------------------------------------------------------------
 
+    match /stores/{storeId} {
+      allow read, write: if isOwner(storeId) || isAdmin();
+
+      match /products/{productId} {
+        allow read: if true;
+        allow write: if isOwner(storeId) || isAdmin();
+      }
+
+      match /orders/{orderId} {
+        allow read, write: if isOwner(storeId) || isAdmin();
+      }
+    }
+    
     match /promotions/{promoId} {
       allow read: if true;
       allow write: if isAdmin();

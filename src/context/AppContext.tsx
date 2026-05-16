@@ -11,6 +11,7 @@ interface UserProfile {
   name: string;
   email: string;
   isAdmin: boolean;
+  storeId?: string; // Optional storeId linking
   preferredRole?: 'admin' | 'customer';
   mpConnected?: boolean;
   mpPublicKey?: string;
@@ -26,6 +27,25 @@ interface UserProfile {
   points?: number;
 }
 
+interface Store {
+  id: string;
+  name: string;
+  ownerId: string;
+  logoUrl?: string;
+  appName?: string;
+  appLogo?: string;
+  themeColor?: string;
+  themeStructure?: string;
+  themePrimary?: string;
+  themeSecondary?: string;
+  themeBackground?: string;
+  mpPublicKey?: string;
+  mpAccessToken?: string;
+  lalamoveApiKey?: string;
+  lalamoveSecret?: string;
+  imgbbApiKey?: string;
+}
+
 interface AppContextType {
   cart: CartItem[];
   addToCart: (product: Product, quantity: number, notes?: string, flavors?: string[], toppings?: string[]) => void;
@@ -36,10 +56,12 @@ interface AppContextType {
   setSplashVisible: (visible: boolean) => void;
   user: User | null;
   profile: UserProfile | null;
+  store: Store | null;
   loading: boolean;
   userRole: 'admin' | 'customer' | null;
   setUserRole: (role: 'admin' | 'customer' | null) => void;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
+  setStore: React.Dispatch<React.SetStateAction<Store | null>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -49,6 +71,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isSplashVisible, setSplashVisible] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, _setUserRole] = useState<'admin' | 'customer' | null>(null);
 
@@ -57,7 +80,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (user && role) {
       const profileRef = doc(db, 'profiles', user.uid);
       updateDoc(profileRef, { preferredRole: role }).then(() => {
-        // Sync local profile state so we don't have stale data
         setProfile(prev => prev ? { ...prev, preferredRole: role } : null);
       }).catch(e => {
         console.error("Failed to save preferred role:", e);
@@ -66,17 +88,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    if (profile) {
+    if (store) {
       // Apply theme colors
-      const palette = THEME_PALETTES.find(p => p.id === (profile.themeColor || 'default')) || THEME_PALETTES[0];
+      const palette = THEME_PALETTES.find(p => p.id === (store.themeColor || 'default')) || THEME_PALETTES[0];
       document.documentElement.style.setProperty('--primary', palette.primary);
       document.documentElement.style.setProperty('--secondary', palette.secondary);
+      document.documentElement.style.setProperty('--background', store.themeBackground || '#050505');
       
       // Apply theme structure
-      const structure = THEME_STRUCTURES.find(s => s.id === (profile.themeStructure || 'modern')) || THEME_STRUCTURES[0];
+      const structure = THEME_STRUCTURES.find(s => s.id === (store.themeStructure || 'modern')) || THEME_STRUCTURES[0];
       document.documentElement.style.setProperty('--radius-factor', structure.radius);
       
-      // Handle font (if needed, though mostly used via classes)
       if (structure.font === 'font-serif') {
         document.body.classList.add('font-serif');
         document.body.classList.remove('font-sans');
@@ -85,7 +107,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         document.body.classList.remove('font-serif');
       }
     }
-  }, [profile]);
+  }, [store]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -100,92 +122,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           handleFirestoreError(e, OperationType.GET, `profiles/${currentUser.uid}`);
           return;
         }
-                if (profileSnap.exists()) {
+
+        // Fetch store
+        const storeRef = doc(db, 'stores', currentUser.uid);
+        let storeSnap;
+        try {
+          storeSnap = await getDoc(storeRef);
+        } catch (e) {
+          handleFirestoreError(e, OperationType.GET, `stores/${currentUser.uid}`);
+          return;
+        }
+        
+        if (profileSnap.exists()) {
           const profileData = profileSnap.data() as UserProfile;
-          
-          // Fetch secrets if they exist (only the owner can read their own secrets)
-          const secretsRef = doc(db, 'profiles', currentUser.uid, 'private', 'secrets');
-          const secretsSnap = await getDoc(secretsRef).catch(() => null);
-          const secretsData = secretsSnap?.exists() ? secretsSnap.data() : {};
-
-          // Check for admin status via 'admins' collection
-          const adminRef = doc(db, 'admins', currentUser.uid);
-          let adminSnap;
-          try {
-            adminSnap = await getDoc(adminRef);
-          } catch (e) {
-            handleFirestoreError(e, OperationType.GET, `admins/${currentUser.uid}`);
-            return;
-          }
-          
-          // Safety fallback for the bootstrap admin email
-          const currentEmail = currentUser.email?.toLowerCase().trim();
-          const BOOTSTRAP_ADMIN = 'fabricasoftwareai@gmail.com';
-          const isBootstrapAdmin = currentEmail === BOOTSTRAP_ADMIN;
-          const isActuallyAdmin = adminSnap.exists() || isBootstrapAdmin;
-          
-          if (isBootstrapAdmin) {
-            console.log("Bootstrap admin detected:", currentEmail);
-          }
-
-          const updatedProfile: UserProfile = {
-            ...profileData,
-            ...secretsData,
-            isAdmin: isActuallyAdmin
-          };
-          
-          setProfile(updatedProfile);
-          
-          // Load preferred role if exists
-          if (updatedProfile.preferredRole) {
-            console.log("Loading preferred role from profile:", updatedProfile.preferredRole);
-            _setUserRole(updatedProfile.preferredRole);
-          } else {
-            console.log("No preferred role found in profile.");
-          }
-          
-          if (profileData.isAdmin !== isActuallyAdmin) {
-            updateDoc(profileRef, { isAdmin: isActuallyAdmin }).catch(e => {
-              console.error("Failed to sync admin status:", e);
-            });
-          }
-        } else {
-          // New profile: check admin status first
-          const adminRef = doc(db, 'admins', currentUser.uid);
-          let adminSnap;
-          try {
-            adminSnap = await getDoc(adminRef);
-          } catch (e) {
-            handleFirestoreError(e, OperationType.GET, `admins/${currentUser.uid}`);
-            return;
-          }
-          const currentEmail = currentUser.email?.toLowerCase().trim();
-          const BOOTSTRAP_ADMIN = 'fabricasoftwareai@gmail.com';
-          const isBootstrapAdmin = currentEmail === BOOTSTRAP_ADMIN;
-          const isActuallyAdmin = adminSnap.exists() || isBootstrapAdmin;
-          
-          if (isBootstrapAdmin) {
-            console.log("Bootstrap admin detected (new profile):", currentEmail);
-          }
-
-          const newProfile: UserProfile = {
-            userId: currentUser.uid,
-            name: currentUser.displayName || '',
-            email: currentUser.email || '',
-            isAdmin: isActuallyAdmin,
-          };
-          try {
-            await setDoc(profileRef, newProfile);
-          } catch (e) {
-            handleFirestoreError(e, OperationType.WRITE, `profiles/${currentUser.uid}`);
-          }
-          setProfile(newProfile);
-          if (userRole === null) {
-            // All users need to selection
+          setProfile(profileData);
+          if (profileData.preferredRole) {
+            _setUserRole(profileData.preferredRole);
           }
         }
+        
+        if (storeSnap.exists()) {
+             setStore({ id: storeSnap.id, ...storeSnap.data() } as Store);
+        }
+
       } else {
         setProfile(null);
+        setStore(null);
         setUserRole(null);
       }
       setLoading(false);
@@ -195,12 +157,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addToCart = (product: Product, quantity: number, notes?: string, flavors: string[] = [], toppings: string[] = []) => {
-    // Normalize optional fields to avoid ID mismatches (e.g. undefined vs "")
     const normalizedNotes = notes?.trim() || "";
     const sortedFlavors = [...flavors].sort();
     const sortedToppings = [...toppings].sort();
-    
-    // Generate a unique ID for this specific combination
     const cartItemId = `${product.id}-${sortedFlavors.join(',')}-${sortedToppings.join(',')}-${normalizedNotes}`;
 
     setCart(prev => {
@@ -214,8 +173,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       return [...prev, { ...product, cartItemId, quantity, notes: normalizedNotes, flavors: sortedFlavors, toppings: sortedToppings }];
     });
-    
-    // Trigger global event or custom state to open cart automatically
     document.dispatchEvent(new CustomEvent('open-cart'));
   };
 
@@ -246,10 +203,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSplashVisible,
       user,
       profile,
+      store,
       loading,
       userRole,
       setUserRole,
-      setProfile
+      setProfile,
+      setStore
     }}>
       {children}
     </AppContext.Provider>

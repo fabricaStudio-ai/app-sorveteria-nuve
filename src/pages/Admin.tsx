@@ -80,7 +80,7 @@ import { cn } from '../lib/utils';
 const COLORS = ['#00f2ff', '#7000ff', '#ff00d4', '#ff8c00', '#00ff8c'];
 
 export default function Admin() {
-  const { user, profile, loading: authLoading, setUserRole } = useApp();
+  const { user, profile, store, loading: authLoading, setUserRole } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
@@ -380,8 +380,10 @@ export default function Admin() {
     audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
 
     // Real-time Orders Listener (Preparation Queue)
+    if (!store?.id) return;
+
     const ordersQuery = query(
-      collection(db, 'orders'),
+      collection(db, 'stores', store.id, 'orders'),
       orderBy('createdAt', 'desc'),
       limit(50)
     );
@@ -421,23 +423,25 @@ export default function Admin() {
   }, [profile]);
 
   const deleteOrder = async (id: string) => {
+    if (!store?.id) return;
     console.log("Attempting to delete order:", id);
     try {
-      await deleteDoc(doc(db, 'orders', id));
+      await deleteDoc(doc(db, 'stores', store.id, 'orders', id));
       console.log("Order deleted successfully:", id);
       setOrderToDelete(null); // Clear confirmation state
     } catch (e) {
       console.error("Delete order error:", e);
-      handleFirestoreError(e, OperationType.DELETE, `orders/${id}`);
+      handleFirestoreError(e, OperationType.DELETE, `stores/${store.id}/orders/${id}`);
     }
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
+    if (!store?.id) return;
     try {
-      const orderRef = doc(db, 'orders', orderId);
+      const orderRef = doc(db, 'stores', store.id, 'orders', orderId);
       
       // Get current order data to handle points
-      const ordersSnap = await getDocs(query(collection(db, 'orders'), where('__name__', '==', orderId), limit(1)));
+      const ordersSnap = await getDocs(query(collection(db, 'stores', store.id, 'orders'), where('__name__', '==', orderId), limit(1)));
       const orderData = !ordersSnap.empty ? ordersSnap.docs[0].data() as Order : null;
 
       await updateDoc(orderRef, { status: newStatus });
@@ -463,18 +467,19 @@ export default function Admin() {
         }
       }
     } catch (e) {
-      handleFirestoreError(e, OperationType.UPDATE, `orders/${orderId}`);
+      handleFirestoreError(e, OperationType.UPDATE, `stores/${store.id}/orders/${orderId}`);
     }
   };
 
   const fetchProducts = async () => {
+    if (!store?.id) return;
     setLoading(true);
     try {
-      const querySnapshot = await getDocs(collection(db, 'products'));
+      const querySnapshot = await getDocs(collection(db, 'stores', store.id, 'products'));
       const prods = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
       setProducts(prods);
     } catch (e) {
-      handleFirestoreError(e, OperationType.GET, 'products');
+      handleFirestoreError(e, OperationType.GET, `stores/${store.id}/products`);
     } finally {
       setLoading(false);
     }
@@ -532,7 +537,7 @@ export default function Admin() {
   };
 
   const handleSaveProduct = async () => {
-    if (!productForm.name || !productForm.price) return;
+    if (!productForm.name || !productForm.price || !store?.id) return;
 
     try {
       const data = {
@@ -545,9 +550,9 @@ export default function Admin() {
       };
 
       if (editingProduct) {
-        await setDoc(doc(db, 'products', editingProduct.id), data);
+        await setDoc(doc(db, 'stores', store.id, 'products', editingProduct.id), data);
       } else {
-        await addDoc(collection(db, 'products'), {
+        await addDoc(collection(db, 'stores', store.id, 'products'), {
           ...data,
           createdAt: new Date().toISOString(),
           rating: 5

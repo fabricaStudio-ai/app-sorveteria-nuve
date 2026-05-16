@@ -1,148 +1,72 @@
 {
   "entities": {
-    "Product": {
-      "title": "Product",
-      "description": "Ice cream and related items",
+    "Store": {
+      "title": "Store",
+      "description": "Ice cream shop details",
       "type": "object",
       "properties": {
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "ownerId", "createdAt"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Ice cream and related items scoped to a store",
+      "type": "object",
+      "properties": {
+        "storeId": { "type": "string" },
         "name": { "type": "string" },
         "description": { "type": "string" },
         "price": { "type": "number" },
-        "originalPrice": { "type": "number" },
-        "category": { "type": "string", "enum": ["sorvetes", "milkshakes", "acai", "combos", "promocao"] },
-        "image": { "type": "string" },
-        "rating": { "type": "number" },
-        "isBestSeller": { "type": "boolean" },
-        "tag": { "type": "string" },
-        "maxFlavors": { "type": "number" },
-        "availableFlavors": { "type": "array", "items": { "type": "string" } },
-        "stock": { "type": "number" }
+        "category": { "type": "string" },
+        "image": { "type": "string" }
       },
-      "required": ["name", "description", "price", "category", "image"]
+      "required": ["storeId", "name", "price", "category", "image"]
     },
     "Order": {
       "title": "Order",
-      "description": "Customer orders",
+      "description": "Customer orders scoped to a store",
       "type": "object",
       "properties": {
+        "storeId": { "type": "string" },
         "userId": { "type": "string" },
-        "items": { "type": "array" },
         "total": { "type": "number" },
-        "status": { "type": "string", "enum": ["pending_payment", "received", "preparing", "shipped", "ready_for_pickup", "completed", "cancelled"] },
-        "paymentStatus": { "type": "string", "enum": ["pending", "paid", "failed", "refunded"] },
-        "deliveryMethod": { "type": "string", "enum": ["delivery", "pickup"] },
-        "deliveryAddress": {
-          "type": "object",
-          "properties": {
-            "street": { "type": "string" },
-            "number": { "type": "string" },
-            "complement": { "type": "string" },
-            "neighborhood": { "type": "string" },
-            "city": { "type": "string" },
-            "zipCode": { "type": "string" }
-          }
-        },
-        "customerName": { "type": "string" },
-        "customerPhone": { "type": "string" },
-        "paymentInfo": { "type": "object" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "status": { "type": "string" }
       },
-      "required": ["items", "total", "status", "deliveryMethod", "createdAt"]
+      "required": ["storeId", "total", "status"]
     },
     "Profile": {
       "title": "Profile",
-      "description": "User profile data",
+      "description": "User profile data linked to a store",
       "type": "object",
       "properties": {
         "userId": { "type": "string" },
+        "storeId": { "type": "string" },
         "name": { "type": "string" },
-        "email": { "type": "string" },
-        "phone": { "type": "string" },
-        "isAdmin": { "type": "boolean" }
+        "email": { "type": "string" }
       },
       "required": ["userId", "email"]
-    },
-    "Transaction": {
-      "title": "Transaction",
-      "description": "Financial transaction",
-      "type": "object",
-      "properties": {
-        "type": { "type": "string", "enum": ["income", "expense"] },
-        "category": { "type": "string" },
-        "description": { "type": "string" },
-        "amount": { "type": "number" },
-        "date": { "type": "string", "format": "date-time" },
-        "userId": { "type": "string" }
-      },
-      "required": ["type", "amount", "date", "category"]
-    },
-    "PaymentMethod": {
-      "title": "PaymentMethod",
-      "description": "Available payment methods",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "type": { "type": "string", "enum": ["pix", "card", "cash"] },
-        "isActive": { "type": "boolean" },
-        "details": { "type": "string" }
-      },
-      "required": ["name", "type", "isActive"]
-    },
-    "Admin": {
-      "title": "Admin",
-      "description": "System administrators mapping",
-      "type": "object",
-      "properties": {
-        "addedAt": { "type": "string", "format": "date-time" },
-        "addedBy": { "type": "string" }
-      }
-    },
-    "Promotion": {
-      "title": "Promotion",
-      "description": "Special offers and discounts",
-      "type": "object",
-      "properties": {
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "discount": { "type": "string" },
-        "image": { "type": "string" },
-        "expiresAt": { "type": "string" },
-        "isActive": { "type": "boolean" },
-        "code": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["title", "discount", "isActive"]
     }
   },
   "firestore": {
-    "products": {
-      "schema": "Product",
-      "description": "List of available products"
+    "stores": {
+      "schema": "Store",
+      "description": "List of all stores"
     },
-    "orders": {
+    "stores/{storeId}/products": {
+      "schema": "Product",
+      "description": "Products per store"
+    },
+    "stores/{storeId}/orders": {
       "schema": "Order",
-      "description": "Customer order history"
+      "description": "Orders per store"
     },
     "profiles": {
       "schema": "Profile",
-      "description": "Customer profiles"
-    },
-    "transactions": {
-      "schema": "Transaction",
-      "description": "Financial records (income/expenses)"
-    },
-    "paymentMethods": {
-      "schema": "PaymentMethod",
-      "description": "Configurations for payment forms"
-    },
-    "admins": {
-      "schema": "Admin",
-      "description": "Whitelisted administrator UIDs"
-    },
-    "promotions": {
-      "schema": "Promotion",
-      "description": "Active promotional offers and codes"
+      "description": "User profiles"
     }
   }
 }
