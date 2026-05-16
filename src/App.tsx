@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useLocation, useNavigate, Navigate } from
 import { AnimatePresence, motion } from 'motion/react';
 import { ShoppingBag } from 'lucide-react';
 import { AppProvider, useApp } from './context/AppContext';
+import { THEME_PALETTES } from './constants';
 import { cn } from './lib/utils';
 import Splash from './components/Splash';
 import BottomNav from './components/BottomNav';
@@ -25,6 +26,21 @@ const Promos = () => <div className="p-8 text-center text-white/40">Promoções 
 
 function AppContent() {
   const { isSplashVisible, cart, profile, loading, user, userRole } = useApp();
+  
+  React.useEffect(() => {
+    if (profile?.themeColor === 'custom') {
+      document.documentElement.style.setProperty('--primary', profile.themePrimary || '#00f2ff');
+      document.documentElement.style.setProperty('--secondary', profile.themeSecondary || '#a855f7');
+    } else {
+      // Find the selected palette and apply it if not custom
+      const palette = THEME_PALETTES.find(p => p.id === (profile?.themeColor || 'default'));
+      if (palette) {
+        document.documentElement.style.setProperty('--primary', palette.primary);
+        document.documentElement.style.setProperty('--secondary', palette.secondary);
+      }
+    }
+  }, [profile]);
+
   const [isCartOpen, setIsCartOpen] = React.useState(false);
   const [notification, setNotification] = React.useState({ show: false, message: '' });
   const location = useLocation();

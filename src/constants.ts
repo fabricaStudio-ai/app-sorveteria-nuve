@@ -40,6 +40,7 @@ export const THEME_PALETTES = [
   { id: 'orange', label: 'Tropical Mix', primary: '#fb923c', secondary: '#fbbf24' },
   { id: 'lavender', label: 'Lavanda Soft', primary: '#c084fc', secondary: '#6366f1' },
   { id: 'dark-gold', label: 'Premium Gold', primary: '#fbbf24', secondary: '#d97706' },
+  { id: 'custom', label: 'Personalizado', primary: '#000000', secondary: '#000000' },
 ];
 
 export const THEME_STRUCTURES = [

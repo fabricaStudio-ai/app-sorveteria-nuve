@@ -38,6 +38,8 @@ export default function Settings() {
   const [appLogo, setAppLogo] = useState(profile?.appLogo || '');
   const [themeColor, setThemeColor] = useState(profile?.themeColor || 'default');
   const [themeStructure, setThemeStructure] = useState(profile?.themeStructure || 'modern');
+  const [themePrimary, setThemePrimary] = useState(profile?.themePrimary || '#00f2ff');
+  const [themeSecondary, setThemeSecondary] = useState(profile?.themeSecondary || '#a855f7');
   const [showBrandingModal, setShowBrandingModal] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -49,6 +51,8 @@ export default function Settings() {
       setAppLogo(profile.appLogo || '');
       setThemeColor(profile.themeColor || 'default');
       setThemeStructure(profile.themeStructure || 'modern');
+      setThemePrimary(profile.themePrimary || '#00f2ff');
+      setThemeSecondary(profile.themeSecondary || '#a855f7');
       setImgbbConfig(profile.imgbbApiKey || '');
       setMpForm({
         publicKey: profile.mpPublicKey || '',
@@ -70,6 +74,8 @@ export default function Settings() {
         appLogo: appLogo,
         themeColor: themeColor,
         themeStructure: themeStructure,
+        themePrimary: themePrimary,
+        themeSecondary: themeSecondary,
         updatedAt: new Date().toISOString()
       };
       await updateDoc(doc(db, 'profiles', user.uid), updateData);
@@ -758,7 +764,7 @@ export default function Settings() {
                      type="text" 
                      value={appName}
                      onChange={(e) => setAppName(e.target.value)}
-                     placeholder="Ex: Sorveteria Nuvê"
+                     placeholder="Ex: Seu Negócio"
                      className="w-full glass bg-white/5 py-4 px-6 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 ring-primary/50"
                    />
                  </div>
