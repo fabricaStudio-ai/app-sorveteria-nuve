@@ -105,7 +105,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         throw new Error("Não foi possível registrar o pedido no banco de dados. Verifique a conexão.");
       }
 
-      const checkoutResponse = await createPreference(cart, orderInfo.id);
+      const checkoutResponse = await createPreference(cart, orderInfo.id, authUser?.email || undefined);
       const url = checkoutResponse.url || checkoutResponse.sandbox_url;
       
       if (url) {

@@ -189,7 +189,7 @@ app.post("/api/create-preference", async (req, res) => {
     if (typeof payload === 'string') {
       try { payload = JSON.parse(payload); } catch (e) {}
     }
-    const { items, success_url, failure_url, pending_url } = payload || {};
+    const { items, success_url, failure_url, pending_url, payerEmail } = payload || {};
 
     if (!items || !Array.isArray(items)) {
       console.error("Invalid body format. req.body:", req.body);
@@ -238,6 +238,7 @@ app.post("/api/create-preference", async (req, res) => {
 
     const result = await preference.create({
       body: {
+        payer: payerEmail ? { email: payerEmail } : undefined,
         items: items.map((item: any) => ({
           id: item.id,
           title: item.name,

@@ -1,4 +1,4 @@
-export async function createPreference(items: any[], orderId?: string) {
+export async function createPreference(items: any[], orderId?: string, userEmail?: string) {
   try {
     const url = '/api/create-preference';
     console.log('Fetching Mercado Pago preference from:', window.location.origin + url);
@@ -10,6 +10,7 @@ export async function createPreference(items: any[], orderId?: string) {
       body: JSON.stringify({
         items,
         orderId,
+        payerEmail: userEmail,
         success_url: window.location.origin + `/orders?success=true${orderId ? `&orderId=${orderId}` : ''}`,
         failure_url: window.location.origin + '/menu',
         pending_url: window.location.origin + `/orders?pending=true${orderId ? `&orderId=${orderId}` : ''}`,
