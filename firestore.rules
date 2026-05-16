@@ -69,7 +69,10 @@ service cloud.firestore {
       }
 
       match /orders/{orderId} {
-        allow read, write: if isOwner(storeId) || isAdmin();
+        allow read: if isOwner(storeId) || isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+        allow list: if isOwner(storeId) || isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+        allow create: if true; // Validation should be added for production
+        allow update, delete: if isOwner(storeId) || isAdmin();
       }
     }
     

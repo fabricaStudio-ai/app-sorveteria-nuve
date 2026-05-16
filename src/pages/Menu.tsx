@@ -20,11 +20,23 @@ export default function Menu() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const snap = await getDocs(collection(db, 'products'));
+        let snap;
+        // Try to find the first store to fetch products from
+        const storesSnap = await getDocs(collection(db, 'stores'));
+        if (!storesSnap.empty) {
+          const storeId = storesSnap.docs[0].id;
+          snap = await getDocs(collection(db, 'stores', storeId, 'products'));
+          console.log(`Fetched ${snap.size} products from store ${storeId}`);
+        } else {
+          // Fallback to root products for older data or if no store yet
+          snap = await getDocs(collection(db, 'products'));
+          console.log(`Fetched ${snap.size} products from root`);
+        }
+        
         const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
         setAllProducts(data);
       } catch (e) {
-        console.error(e);
+        console.error("Error fetching products:", e);
         setAllProducts([]);
       } finally {
         setLoading(false);

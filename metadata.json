@@ -2,5 +2,5 @@
   "name": "App Delivery Personalizável",
   "description": "App de delivery premium white-label com gestão dinâmica de marca (logo e nome), pedidos integrados com foco em aprovação de pagamento e dashboard administrativo completo.",
   "requestFramePermissions": ["camera", "geolocation"],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

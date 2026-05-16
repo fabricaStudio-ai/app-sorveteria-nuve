@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -17,42 +18,65 @@ try {
 
 // Initialize Firebase Admin
 let db: admin.firestore.Firestore | null = null;
-try {
-  // Handle different import styles depending on the environment/bundler
-  const adminInstance = (admin as any).default || admin;
-  const apps = adminInstance.apps || [];
 
-  if (apps.length === 0) {
-    const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-    let credential;
+const initializeFirebase = async () => {
+  try {
+    const adminInstance = (admin as any).default || admin;
+    let appInstance;
 
-    if (serviceAccountVar) {
-      try {
-        const serviceAccount = JSON.parse(serviceAccountVar);
-        credential = adminInstance.credential.cert(serviceAccount);
-        console.log("DEBUG: Initializing Firebase Admin with Service Account JSON.");
-      } catch (e) {
-        console.error("ERROR: Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. Falling back to applicationDefault.", e);
-        credential = adminInstance.credential.applicationDefault();
+    if (adminInstance.apps.length === 0) {
+      const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+      const projectId = firebaseConfig.projectId || process.env.FIREBASE_PROJECT_ID;
+      
+      const options: any = {};
+      if (projectId) options.projectId = projectId;
+
+      if (serviceAccountVar) {
+        try {
+          let parsed = JSON.parse(serviceAccountVar);
+          if (typeof parsed === 'string') {
+            parsed = JSON.parse(parsed);
+          }
+          options.credential = adminInstance.credential.cert(parsed);
+          console.log("DEBUG: Using Service Account Credential for project:", options.projectId);
+        } catch (e) {
+          console.error("DEBUG: Failed to parse service account", e);
+        }
       }
+
+      // If no cert or parse failed, use applicationDefault
+      if (!options.credential) {
+        console.log("DEBUG: Using Application Default Credentials");
+        options.credential = adminInstance.credential.applicationDefault();
+      }
+
+      appInstance = adminInstance.initializeApp(options);
     } else {
-      console.log("DEBUG: FIREBASE_SERVICE_ACCOUNT_JSON not found. Using applicationDefault().");
-      credential = adminInstance.credential.applicationDefault();
+      appInstance = adminInstance.apps[0];
     }
 
-    adminInstance.initializeApp({
-      credential,
-      projectId: firebaseConfig.projectId || process.env.FIREBASE_PROJECT_ID,
-    });
-    console.log("DEBUG: Admin app initialized successfully.");
-  } else {
-    console.log("DEBUG: Admin app already running.");
+    const dbId = firebaseConfig.firestoreDatabaseId;
+    if (dbId && dbId !== '(default)') {
+      db = getFirestore(appInstance, dbId);
+      console.log("DEBUG: Connected to named database:", dbId);
+    } else {
+      db = getFirestore(appInstance);
+      console.log("DEBUG: Connected to default database");
+    }
+  } catch (error) {
+    console.error("Firebase admin init error:", error);
   }
-  db = adminInstance.firestore();
-  console.log("DEBUG: db instance created.");
-} catch (error) {
-  console.error("Firebase admin initialization error:", error);
-}
+};
+
+// Start initialization immediately
+const initPromise = initializeFirebase();
+
+// Helper to ensure db is initialized (for routes)
+const getDb = async () => {
+  await initPromise;
+  if (!db) await initializeFirebase();
+  return db;
+};
 
 export const app = express();
 app.use(express.json());
@@ -134,19 +158,27 @@ app.get('/api/auth/mp/callback', async (req, res) => {
     // data contains: access_token, public_key, refresh_token, etc.
     const { access_token, public_key } = data;
 
-    if (!db) {
+    const currentDb = await getDb();
+    if (!currentDb) {
        throw new Error("Database not initialized on server");
     }
 
     // Update Firestore
-    const profileRef = db.collection('profiles').doc(userId as string);
+    const profileRef = currentDb.collection('profiles').doc(userId as string);
     const secretsRef = profileRef.collection('private').doc('secrets');
     
     // Update basic status on profile
-    await profileRef.update({
+    await profileRef.set({
       mpConnected: true,
       updatedAt: new Date().toISOString()
-    });
+    }, { merge: true });
+
+    // Also update the store document since the app logic relies on it
+    const storeRef = currentDb.collection('stores').doc(userId as string);
+    await storeRef.set({
+      mpConnected: true,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
 
     // Save sensitive tokens in the private subcollection
     // Using setDoc with merge: true to avoid errors if the doc doesn't exist yet
@@ -189,7 +221,7 @@ app.post("/api/create-preference", async (req, res) => {
     if (typeof payload === 'string') {
       try { payload = JSON.parse(payload); } catch (e) {}
     }
-    const { items, success_url, failure_url, pending_url, payerEmail } = payload || {};
+    const { items, success_url, failure_url, pending_url, payerEmail, orderId, storeId } = payload || {};
 
     if (!items || !Array.isArray(items)) {
       console.error("Invalid body format. req.body:", req.body);
@@ -200,28 +232,33 @@ app.post("/api/create-preference", async (req, res) => {
     let accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
     
     // Allow for runtime fallback correctly
+    const currentDb = await getDb();
     if (!accessToken || accessToken === 'YOUR_ACCESS_TOKEN') {
-      if (!db) {
+      if (!currentDb) {
          console.error("Database not initialized");
          return res.status(500).json({ error: "Configuração do servidor incompleta (DB ausente)." });
       }
-      const querySnapshot = await db.collection("profiles").where("mpConnected", "==", true).limit(1).get();
       
-      if (!querySnapshot.empty) {
-        const profileId = querySnapshot.docs[0].id;
-        const profileData = querySnapshot.docs[0].data();
-        
-        // Try to get from subcollection first (new way)
-        const secretsSnap = await db.collection("profiles").doc(profileId).collection("private").limit(1).get();
-        
+      // If we have storeId, use that to find the owner's credentials
+      let profileId = null;
+      if (storeId && storeId !== 'default') {
+        profileId = storeId; // storeId is ownerId
+      } else {
+        const querySnapshot = await currentDb.collection("profiles").where("mpConnected", "==", true).limit(1).get();
+        if (!querySnapshot.empty) {
+          profileId = querySnapshot.docs[0].id;
+        }
+      }
+
+      if (profileId) {
+        const secretsSnap = await currentDb.collection("profiles").doc(profileId).collection("private").limit(1).get();
         if (!secretsSnap.empty) {
           accessToken = secretsSnap.docs[0].data().mpAccessToken;
         } else {
-          // Fallback to main doc (old way)
-          accessToken = profileData.mpAccessToken;
+          const profileSnap = await currentDb.collection("profiles").doc(profileId).get();
+          accessToken = profileSnap.data()?.mpAccessToken;
         }
-        
-        console.log("Using Mercado Pago credentials from manager profile:", profileId);
+        console.log("Using Mercado Pago credentials from profile:", profileId);
       }
     }
 
@@ -236,29 +273,35 @@ app.post("/api/create-preference", async (req, res) => {
 
     const appUrl = process.env.APP_URL || (req.headers.origin ?? `https://${req.headers.host}`);
 
-    const result = await preference.create({
-      body: {
-        payer: payerEmail ? { email: payerEmail } : undefined,
-        items: items.map((item: any) => ({
-          id: item.id,
-          title: item.name,
-          unit_price: Number(item.price),
-          quantity: Number(item.quantity),
-          currency_id: 'BRL',
-          description: [
-            item.flavors?.length ? `Sabores: ${item.flavors.join(", ")}` : "",
-            item.toppings?.length ? `Coberturas: ${item.toppings.join(", ")}` : "",
-            item.notes ? `Obs: ${item.notes}` : "",
-          ].filter(Boolean).join(" | "),
-        })),
-        back_urls: {
-          success: success_url || `${appUrl}/orders?success=true`,
-          failure: failure_url || `${appUrl}/menu`,
-          pending: pending_url || `${appUrl}/orders?pending=true`,
-        },
-        auto_return: 'approved',
-      }
-    });
+    // Build the preference body
+    const preferenceBody: any = {
+      items: items.map((item: any) => ({
+        id: item.id || Math.random().toString(36).substring(7),
+        title: item.name || "Produto",
+        unit_price: Number(item.price || 0),
+        quantity: Number(item.quantity || 1),
+        currency_id: 'BRL',
+        description: [
+          item.flavors?.length ? `Sabores: ${item.flavors.join(", ")}` : "",
+          item.toppings?.length ? `Coberturas: ${item.toppings.join(", ")}` : "",
+          item.notes ? `Obs: ${item.notes}` : "",
+        ].filter(Boolean).join(" | "),
+      })),
+      external_reference: storeId && orderId ? `${storeId}:${orderId}` : orderId,
+      back_urls: {
+        success: success_url || `${appUrl}/orders?success=true`,
+        failure: failure_url || `${appUrl}/menu`,
+        pending: pending_url || `${appUrl}/orders?pending=true`,
+      },
+      auto_return: 'approved',
+    };
+
+    // Only add payer if we have a valid-looking email
+    if (payerEmail && typeof payerEmail === 'string' && payerEmail.includes('@')) {
+      preferenceBody.payer = { email: payerEmail.trim() };
+    }
+
+    const result = await preference.create({ body: preferenceBody });
 
     console.log("Mercado Pago Preference Created:", result.id);
     res.json({ id: result.id, url: result.init_point, sandbox_url: result.sandbox_init_point });
@@ -277,13 +320,16 @@ app.post("/api/webhooks/mercadopago", async (req, res) => {
   
   if (type === "payment" && data?.id) {
     try {
+      const currentDb = await getDb();
       // 1. Fetch manager token (reused logic for simplicity)
       let accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
       if (!accessToken || accessToken === 'YOUR_ACCESS_TOKEN') {
-        const querySnapshot = await db!.collection("profiles").where("mpConnected", "==", true).limit(1).get();
+        if (!currentDb) throw new Error("Database not initialized on server");
+
+        const querySnapshot = await currentDb.collection("profiles").where("mpConnected", "==", true).limit(1).get();
         if (!querySnapshot.empty) {
           const profileId = querySnapshot.docs[0].id;
-          const secretsSnap = await db!.collection("profiles").doc(profileId).collection("private").limit(1).get();
+          const secretsSnap = await currentDb.collection("profiles").doc(profileId).collection("private").limit(1).get();
           accessToken = !secretsSnap.empty ? secretsSnap.docs[0].data().mpAccessToken : querySnapshot.docs[0].data().mpAccessToken;
         }
       }
@@ -297,14 +343,23 @@ app.post("/api/webhooks/mercadopago", async (req, res) => {
       const payment = await paymentResponse.json();
 
       // 3. Update Order
-      const orderId = payment.external_reference;
-      if (orderId && db) {
-        await db.collection("orders").doc(orderId).update({
+      const ref = payment.external_reference;
+      if (ref && currentDb) {
+        let orderRef;
+        if (ref.includes(':')) {
+          const [sId, oId] = ref.split(':');
+          orderRef = currentDb.collection("stores").doc(sId).collection("orders").doc(oId);
+        } else {
+          // Fallback to old path
+          orderRef = currentDb.collection("orders").doc(ref);
+        }
+        
+        await orderRef.set({
           paymentStatus: payment.status,
           status: payment.status === 'approved' ? 'received' : 'pending_payment',
           paymentApproved: payment.status === 'approved'
-        });
-        console.log(`Order ${orderId} updated to ${payment.status}`);
+        }, { merge: true });
+        console.log(`Order ${ref} updated to ${payment.status}`);
       }
       res.status(200).send("OK");
     } catch (e) {
@@ -319,11 +374,12 @@ app.post("/api/webhooks/mercadopago", async (req, res) => {
 // Lalamove Endpoints
 app.post("/api/lalamove/quote", async (req, res) => {
   try {
-    if (!db) {
+    const currentDb = await getDb();
+    if (!currentDb) {
        return res.status(500).json({ error: "Servidor sem conexão com o banco de dados." });
     }
     // Find a manager with Lalamove credentials
-    const querySnapshot = await db.collection("profiles").where("lalamoveConnected", "==", true).limit(1).get();
+    const querySnapshot = await currentDb.collection("profiles").where("lalamoveConnected", "==", true).limit(1).get();
     
     let apiKey = "";
     let apiSecret = "";
@@ -332,7 +388,7 @@ app.post("/api/lalamove/quote", async (req, res) => {
       const profileId = querySnapshot.docs[0].id;
       const profileData = querySnapshot.docs[0].data();
       
-      const secretsSnap = await db.collection("profiles").doc(profileId).collection("private").limit(1).get();
+      const secretsSnap = await currentDb.collection("profiles").doc(profileId).collection("private").limit(1).get();
       if (!secretsSnap.empty) {
         const secretsData = secretsSnap.docs[0].data();
         apiKey = secretsData.lalamoveApiKey;
@@ -360,10 +416,11 @@ app.post("/api/lalamove/quote", async (req, res) => {
 
 app.post("/api/lalamove/order", async (req, res) => {
   try {
-    if (!db) {
+    const currentDb = await getDb();
+    if (!currentDb) {
        return res.status(500).json({ error: "Servidor sem conexão com o banco de dados." });
     }
-    const querySnapshot = await db.collection("profiles").where("lalamoveConnected", "==", true).limit(1).get();
+    const querySnapshot = await currentDb.collection("profiles").where("lalamoveConnected", "==", true).limit(1).get();
     
     let apiKey = "";
     let apiSecret = "";
@@ -372,7 +429,7 @@ app.post("/api/lalamove/order", async (req, res) => {
       const profileId = querySnapshot.docs[0].id;
       const profileData = querySnapshot.docs[0].data();
       
-      const secretsSnap = await db.collection("profiles").doc(profileId).collection("private").limit(1).get();
+      const secretsSnap = await currentDb.collection("profiles").doc(profileId).collection("private").limit(1).get();
       if (!secretsSnap.empty) {
         const secretsData = secretsSnap.docs[0].data();
         apiKey = secretsData.lalamoveApiKey;

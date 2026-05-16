@@ -72,8 +72,15 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         orderNumber: orderNumber
       };
       
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      return { id: docRef.id, orderNumber };
+      // Identify target store
+      let storeId = 'default';
+      const storesSnap = await getDocs(query(collection(db, 'stores'), limit(1)));
+      if (!storesSnap.empty) {
+        storeId = storesSnap.docs[0].id;
+      }
+
+      const docRef = await addDoc(collection(db, 'stores', storeId, 'orders'), orderData);
+      return { id: docRef.id, orderNumber, storeId };
     } catch (e) {
       console.error("Error creating order:", e);
       return null;
@@ -105,7 +112,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         throw new Error("Não foi possível registrar o pedido no banco de dados. Verifique a conexão.");
       }
 
-      const checkoutResponse = await createPreference(cart, orderInfo.id, authUser?.email || undefined);
+      const checkoutResponse = await createPreference(cart, orderInfo.id, authUser?.email || undefined, orderInfo.storeId);
       const url = checkoutResponse.url || checkoutResponse.sandbox_url;
       
       if (url) {
