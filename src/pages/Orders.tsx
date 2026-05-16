@@ -23,26 +23,13 @@ export default function Orders() {
         return;
       }
 
-      try {
-        const orderRef = doc(db, 'orders', orderId);
-        
-        if (isSuccess === 'true') {
-          await updateDoc(orderRef, {
-            paymentStatus: 'approved',
-            paymentApproved: true,
-            status: 'pending' // Moves to preparation queue
-          });
-          clearCart();
-          setStatus('success');
-        } else if (isPending === 'true') {
-          await updateDoc(orderRef, {
-            paymentStatus: 'pending'
-          });
-          setStatus('pending');
-        }
-      } catch (error) {
-        console.error("Error updating order payment status:", error);
-        setStatus('error');
+      if (isSuccess === 'true') {
+        clearCart();
+        setStatus('success');
+      } else if (isPending === 'true') {
+        setStatus('pending');
+      } else {
+        setStatus('success');
       }
     };
 
