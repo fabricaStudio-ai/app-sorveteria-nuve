@@ -919,7 +919,7 @@ export default function Admin() {
                   )}
                 </div>
                 <h2 className="text-xl font-serif italic font-bold">
-                  {profile?.appName || 'Nuvê'} Admin
+                  {profile?.appName || 'App'} Admin
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -1145,7 +1145,7 @@ export default function Admin() {
                   >
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                        <div>
-                          <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Catálogo Nuvê</h1>
+                          <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Catálogo {profile?.appName || ''}</h1>
                           <p className="text-white/40 text-sm mt-3 font-medium">Controle total sobre seus itens e sabores artesanais.</p>
                        </div>
                        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
@@ -1197,7 +1197,7 @@ export default function Admin() {
                                </button>
                                <button 
                                 onClick={() => {
-                                  if(confirm("Deseja apagar este sabor da Nuvê?")) {
+                                  if(confirm(`Deseja apagar este sabor de ${profile?.appName || 'seu catálogo'}?`)) {
                                     deleteDoc(doc(db, 'products', p.id)).then(fetchProducts);
                                   }
                                 }}
@@ -1541,7 +1541,7 @@ export default function Admin() {
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                        <div>
                           <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Financeiro</h1>
-                          <p className="text-white/40 text-sm mt-3 font-medium">Gestão de fluxo de caixa e rentabilidade da Nuvê.</p>
+                          <p className="text-white/40 text-sm mt-3 font-medium">Gestão de fluxo de caixa e rentabilidade do {profile?.appName || 'seu app'}.</p>
                        </div>
                        <button 
                          onClick={() => setShowAddTransaction(true)}
@@ -1665,7 +1665,7 @@ export default function Admin() {
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                        <div>
                           <h1 className="text-4xl md:text-5xl font-serif italic font-bold tracking-tighter">Formas de Pagamento</h1>
-                          <p className="text-white/40 text-sm mt-3 font-medium">Configure como seus clientes podem pagar na Nuvê.</p>
+                          <p className="text-white/40 text-sm mt-3 font-medium">Configure como seus clientes podem pagar no {profile?.appName || 'seu app'}.</p>
                        </div>
                        <button 
                          onClick={() => setShowAddPayment(true)}
@@ -2463,7 +2463,7 @@ export default function Admin() {
                 </div>
               </div>
               <div className="absolute bottom-20 left-0 right-0 flex justify-center opacity-40">
-                 <p className="text-2xl font-black text-white tracking-[0.5em] uppercase">{profile?.appName || 'Sorveteria Nuvê'}</p>
+                 <p className="text-2xl font-black text-white tracking-[0.5em] uppercase">{profile?.appName || 'Catálogo'}</p>
               </div>
             </>
           )}

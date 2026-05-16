@@ -40,6 +40,7 @@ export default function Settings() {
   const [themeStructure, setThemeStructure] = useState(profile?.themeStructure || 'modern');
   const [themePrimary, setThemePrimary] = useState(profile?.themePrimary || '#00f2ff');
   const [themeSecondary, setThemeSecondary] = useState(profile?.themeSecondary || '#a855f7');
+  const [themeBackground, setThemeBackground] = useState(profile?.themeBackground || '#050505');
   const [showBrandingModal, setShowBrandingModal] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -53,6 +54,7 @@ export default function Settings() {
       setThemeStructure(profile.themeStructure || 'modern');
       setThemePrimary(profile.themePrimary || '#00f2ff');
       setThemeSecondary(profile.themeSecondary || '#a855f7');
+      setThemeBackground(profile.themeBackground || '#050505');
       setImgbbConfig(profile.imgbbApiKey || '');
       setMpForm({
         publicKey: profile.mpPublicKey || '',
@@ -76,6 +78,7 @@ export default function Settings() {
         themeStructure: themeStructure,
         themePrimary: themePrimary,
         themeSecondary: themeSecondary,
+        themeBackground: themeBackground,
         updatedAt: new Date().toISOString()
       };
       await updateDoc(doc(db, 'profiles', user.uid), updateData);

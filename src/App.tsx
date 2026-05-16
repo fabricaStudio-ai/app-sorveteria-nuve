@@ -31,12 +31,14 @@ function AppContent() {
     if (profile?.themeColor === 'custom') {
       document.documentElement.style.setProperty('--primary', profile.themePrimary || '#00f2ff');
       document.documentElement.style.setProperty('--secondary', profile.themeSecondary || '#a855f7');
+      document.documentElement.style.setProperty('--background', profile.themeBackground || '#050505');
     } else {
       // Find the selected palette and apply it if not custom
       const palette = THEME_PALETTES.find(p => p.id === (profile?.themeColor || 'default'));
       if (palette) {
         document.documentElement.style.setProperty('--primary', palette.primary);
         document.documentElement.style.setProperty('--secondary', palette.secondary);
+        document.documentElement.style.setProperty('--background', palette.background || '#050505');
       }
     }
   }, [profile]);
