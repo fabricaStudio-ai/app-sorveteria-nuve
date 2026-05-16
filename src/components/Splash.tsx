@@ -48,7 +48,7 @@ export default function Splash() {
         transition={{ delay: 0.5, duration: 0.8 }}
       >
         <h1 className="text-4xl font-serif italic font-bold tracking-tighter neon-glow">
-          Sorveteria Nuvê
+          Seu Negócio
         </h1>
         <p className="mt-2 text-white/40 text-sm tracking-[0.2em] uppercase font-light">
           Artesanal & Premium

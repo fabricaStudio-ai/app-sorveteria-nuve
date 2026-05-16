@@ -55,7 +55,7 @@ export default function Auth() {
             transition={{ delay: 0.1 }}
             className="text-5xl font-serif italic text-white font-bold leading-tight mb-4"
           >
-            Nuvê Sorteria
+            Seu Negócio
           </motion.h1>
 
           <motion.p 

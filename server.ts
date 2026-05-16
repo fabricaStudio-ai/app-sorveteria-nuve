@@ -28,19 +28,11 @@ try {
 
     if (serviceAccountVar) {
       try {
-        let serviceAccount = typeof serviceAccountVar === 'string' && serviceAccountVar.trim().startsWith('{') 
-          ? JSON.parse(serviceAccountVar) 
-          : serviceAccountVar;
-        
-        // If it's still a string (double encoded), try parsing one more time
-        if (typeof serviceAccount === 'string' && serviceAccount.trim().startsWith('{')) {
-          serviceAccount = JSON.parse(serviceAccount);
-        }
-
+        const serviceAccount = JSON.parse(serviceAccountVar);
         credential = adminInstance.credential.cert(serviceAccount);
         console.log("DEBUG: Initializing Firebase Admin with Service Account JSON.");
       } catch (e) {
-        console.error("ERROR: Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. Error details:", e);
+        console.error("ERROR: Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON. Falling back to applicationDefault.", e);
         credential = adminInstance.credential.applicationDefault();
       }
     } else {
@@ -275,6 +267,51 @@ app.post("/api/create-preference", async (req, res) => {
       error: error.message || "Erro interno ao processar o pagamento.",
       code: error.status,
     });
+  }
+});
+
+app.post("/api/webhooks/mercadopago", async (req, res) => {
+  const { data, type, action } = req.body;
+  console.log("Webhook received:", { type, action, data });
+  
+  if (type === "payment" && data?.id) {
+    try {
+      // 1. Fetch manager token (reused logic for simplicity)
+      let accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+      if (!accessToken || accessToken === 'YOUR_ACCESS_TOKEN') {
+        const querySnapshot = await db!.collection("profiles").where("mpConnected", "==", true).limit(1).get();
+        if (!querySnapshot.empty) {
+          const profileId = querySnapshot.docs[0].id;
+          const secretsSnap = await db!.collection("profiles").doc(profileId).collection("private").limit(1).get();
+          accessToken = !secretsSnap.empty ? secretsSnap.docs[0].data().mpAccessToken : querySnapshot.docs[0].data().mpAccessToken;
+        }
+      }
+
+      if (!accessToken || accessToken === 'YOUR_ACCESS_TOKEN') throw new Error("No token");
+
+      // 2. Fetch payment details directly
+      const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${data.id}`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      const payment = await paymentResponse.json();
+
+      // 3. Update Order
+      const orderId = payment.external_reference;
+      if (orderId && db) {
+        await db.collection("orders").doc(orderId).update({
+          paymentStatus: payment.status,
+          status: payment.status === 'approved' ? 'received' : 'pending_payment',
+          paymentApproved: payment.status === 'approved'
+        });
+        console.log(`Order ${orderId} updated to ${payment.status}`);
+      }
+      res.status(200).send("OK");
+    } catch (e) {
+      console.error("Webhook error:", e);
+      res.status(500).send("Error");
+    }
+  } else {
+    res.status(200).send("Ignored");
   }
 });
 

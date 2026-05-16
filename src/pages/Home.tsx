@@ -74,7 +74,7 @@ export default function Home() {
           <div>
             <h2 className="text-white/40 text-[10px] uppercase font-bold tracking-[0.3em] mb-1">Bem-vindo à</h2>
             <h1 className="text-2xl font-serif italic font-bold tracking-tighter neon-glow">
-              {profile?.appName || 'Sorveteria Nuvê'}
+              {profile?.appName || 'App Delivery'}
             </h1>
           </div>
         </div>
@@ -116,7 +116,7 @@ export default function Home() {
                   <div className="space-y-1 relative z-10 flex-1 pr-4">
                     <div className="flex items-center gap-2">
                       <Tag className="w-4 h-4 text-primary" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">Oferta Nuvê</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary">Oferta {profile?.appName || 'do Dia'}</span>
                     </div>
                     <h4 className="text-lg font-serif italic font-bold leading-tight line-clamp-2">{promo.title}</h4>
                     <div className="flex items-center gap-2 mt-1">

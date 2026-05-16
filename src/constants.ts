@@ -34,12 +34,13 @@ export const CATEGORIES: Category[] = [
 ];
 
 export const THEME_PALETTES = [
-  { id: 'default', label: 'Neon Nuvê', primary: '#00f2ff', secondary: '#a855f7' },
-  { id: 'strawberry', label: 'Morango Doce', primary: '#ff4d94', secondary: '#ff0000' },
-  { id: 'pistachio', label: 'Pistache Real', primary: '#99ff33', secondary: '#166534' },
-  { id: 'orange', label: 'Tropical Mix', primary: '#fb923c', secondary: '#fbbf24' },
-  { id: 'lavender', label: 'Lavanda Soft', primary: '#c084fc', secondary: '#6366f1' },
-  { id: 'dark-gold', label: 'Premium Gold', primary: '#fbbf24', secondary: '#d97706' },
+  { id: 'default', label: 'Neon Nuvê', primary: '#00f2ff', secondary: '#a855f7', background: '#0a0a0a' },
+  { id: 'strawberry', label: 'Morango Doce', primary: '#ff4d94', secondary: '#ff0000', background: '#2d020e' },
+  { id: 'pistachio', label: 'Pistache Real', primary: '#99ff33', secondary: '#166534', background: '#051206' },
+  { id: 'orange', label: 'Tropical Mix', primary: '#fb923c', secondary: '#fbbf24', background: '#1c1005' },
+  { id: 'lavender', label: 'Lavanda Soft', primary: '#c084fc', secondary: '#6366f1', background: '#0e0a1b' },
+  { id: 'dark-gold', label: 'Premium Gold', primary: '#fbbf24', secondary: '#d97706', background: '#1a1405' },
+  { id: 'custom', label: 'Personalizado', primary: '#000000', secondary: '#000000', background: '#ffffff' },
 ];
 
 export const THEME_STRUCTURES = [
