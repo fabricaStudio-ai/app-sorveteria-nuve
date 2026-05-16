@@ -16,7 +16,38 @@ export default function Settings() {
   const navigate = useNavigate();
   const { profile, userRole, user, setProfile, store, setStore } = useApp();
 
-  // ...
+  const [saving, setSaving] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  
+  const [mpForm, setMpForm] = useState({
+    publicKey: profile?.mpPublicKey || '',
+    accessToken: profile?.mpAccessToken || ''
+  });
+  
+  const [lalamoveForm, setLalamoveForm] = useState({
+    apiKey: profile?.lalamoveApiKey || '',
+    secret: profile?.lalamoveSecret || ''
+  });
+
+  const [showMPModal, setShowMPModal] = useState(false);
+  const [showLalamoveModal, setShowLalamoveModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showBrandingModal, setShowBrandingModal] = useState(false);
+
+  const [savingLalamove, setSavingLalamove] = useState(false);
+  const [savingBranding, setSavingBranding] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const [profileName, setProfileName] = useState(profile?.name || '');
+  const [imgbbConfig, setImgbbConfig] = useState(profile?.imgbbApiKey || '');
+  
+  const [appName, setAppName] = useState('');
+  const [appLogo, setAppLogo] = useState('');
+  const [themeColor, setThemeColor] = useState('default');
+  const [themeStructure, setThemeStructure] = useState('modern');
+  const [themePrimary, setThemePrimary] = useState('#00f2ff');
+  const [themeSecondary, setThemeSecondary] = useState('#a855f7');
+  const [themeBackground, setThemeBackground] = useState('#050505');
 
   useEffect(() => {
     if (store) {
