@@ -215,6 +215,23 @@ app.get('/api/auth/mp/callback', async (req, res) => {
   }
 });
 
+app.post("/api/orders/confirm-payment", async (req, res) => {
+  const { storeId, orderId } = req.body;
+  if (!storeId || !orderId) return res.status(400).send("Missing ids");
+  try {
+    const currentDb = await getDb();
+    if (!currentDb) return res.status(500).send("DB Error");
+    await currentDb.collection("stores").doc(storeId).collection("orders").doc(orderId).set({
+       paymentStatus: 'approved',
+       paymentApproved: true,
+       status: 'received'
+    }, { merge: true });
+    res.status(200).send("OK");
+  } catch(e: any) {
+    res.status(500).send(e.message);
+  }
+});
+
 app.post("/api/create-preference", async (req, res) => {
   try {
     let payload = req.body;

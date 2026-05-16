@@ -765,7 +765,7 @@ export default function Admin() {
     .reduce((acc, t) => acc + (t.amount || 0), 0);
   
   const totalSalesValue = (orders || [])
-    .filter(o => o && o.status !== 'cancelled')
+    .filter(o => o && o.status !== 'cancelled' && o.status !== 'pending_payment')
     .reduce((acc, o) => acc + (o.total || 0), 0);
   
   const dailyStats = [
@@ -1271,7 +1271,7 @@ export default function Admin() {
                          if (orderFilter === 'Enviados') return o.status === 'shipped';
                          if (orderFilter === 'Finalizados') return o.status === 'completed';
                          if (orderFilter === 'Cancelados') return o.status === 'cancelled';
-                         return o.status !== 'completed' && o.status !== 'cancelled';
+                         return o.status !== 'completed' && o.status !== 'cancelled' && o.status !== 'pending_payment';
                        }).map((order) => (
                          <motion.div 
                            key={order.id}

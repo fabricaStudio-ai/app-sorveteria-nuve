@@ -28,9 +28,16 @@ export default function Home() {
   useEffect(() => {
     const fetchHomeData = async () => {
       try {
-        const q = query(collection(db, 'products'), limit(15));
-        const snap = await getDocs(q);
-        const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        let data: Product[] = [];
+        const storesSnap = await getDocs(collection(db, 'stores'));
+        if (!storesSnap.empty) {
+          const storeId = storesSnap.docs[0].id;
+          const snap = await getDocs(query(collection(db, 'stores', storeId, 'products'), limit(15)));
+          data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        } else {
+          const snap = await getDocs(query(collection(db, 'products'), limit(15)));
+          data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+        }
         
         setDbProducts(data);
         setFeaturedProducts(data.filter(p => p.isBestSeller).slice(0, 3));
@@ -39,7 +46,14 @@ export default function Home() {
 
         // Fetch real promotions from 'promotions' collection
         try {
-          const promoSnap = await getDocs(query(collection(db, 'promotions'), where('isActive', '==', true), limit(5)));
+          let promoSnap;
+          if (!storesSnap.empty) {
+             const storeId = storesSnap.docs[0].id;
+             promoSnap = await getDocs(query(collection(db, 'stores', storeId, 'promotions'), where('isActive', '==', true), limit(5)));
+          } else {
+             promoSnap = await getDocs(query(collection(db, 'promotions'), where('isActive', '==', true), limit(5)));
+          }
+           
           setActiveOffers(promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         } catch (err) {
           console.error("Error fetching active offers:", err);

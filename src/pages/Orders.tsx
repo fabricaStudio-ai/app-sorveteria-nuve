@@ -26,13 +26,13 @@ export default function Orders() {
       }
 
       if (isSuccessParam === 'true' || searchParams.get('status') === 'approved') {
-        // Optimistically update order in DB if needed (fallback if webhook missed)
+        // Optimistically update order in DB via API
         if (displayOrderId && displayStoreId) {
           try {
-             await updateDoc(doc(db, 'stores', displayStoreId, 'orders', displayOrderId), {
-               paymentStatus: 'approved',
-               paymentApproved: true,
-               status: 'received'
+             await fetch('/api/orders/confirm-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ storeId: displayStoreId, orderId: displayOrderId })
              });
           } catch(e) {
              console.error("Optimistic update failed:", e);
@@ -45,15 +45,6 @@ export default function Orders() {
            setTimeout(() => navigate(`/tracking/${displayStoreId}/${displayOrderId}`), 3000);
         }
       } else if (isPendingParam === 'true' || searchParams.get('status') === 'pending') {
-        if (displayOrderId && displayStoreId) {
-          try {
-             await updateDoc(doc(db, 'stores', displayStoreId, 'orders', displayOrderId), {
-               paymentStatus: 'pending'
-             });
-          } catch(e) {
-             console.error("Optimistic update failed:", e);
-          }
-        }
         setStatus('pending');
         if (displayOrderId) {
            setTimeout(() => navigate(`/tracking/${displayStoreId}/${displayOrderId}`), 3000);

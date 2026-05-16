@@ -20,7 +20,7 @@ export default function BottomNav({ onOpenCart }: { onOpenCart: () => void }) {
     }
     
     // Admins check orders inside their own store document
-    const q = query(collection(db, 'stores', profile.uid, 'orders'), where('status', '==', 'pending_payment'));
+    const q = query(collection(db, 'stores', profile.uid, 'orders'), where('status', '==', 'received'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setPendingOrdersCount(snapshot.size);
     }, (error) => {
@@ -49,7 +49,7 @@ export default function BottomNav({ onOpenCart }: { onOpenCart: () => void }) {
     { icon: User, label: 'Perfil', path: '/profile' },
   ] : [
     { icon: Home, label: 'Início', path: '/' },
-    { icon: IceCream, label: 'Lanches', path: '/menu' },
+    { icon: IceCream, label: 'Sorvetes', path: '/menu' },
     { 
       icon: ShoppingBag, 
       label: 'Carrinho', 
