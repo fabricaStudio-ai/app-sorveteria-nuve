@@ -1377,12 +1377,17 @@ export default function Admin() {
                                )}
 
                                {order.status === 'received' && (
-                                 <button 
-                                   onClick={() => updateOrderStatus(order.id, 'preparing')}
-                                   className="col-span-2 bg-primary text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
-                                 >
-                                    <ChefHat className="w-4 h-4" /> Começar Preparo
-                                 </button>
+                                 <>
+                                   <div className="col-span-2 bg-[#25D366]/10 text-[#25D366] py-3 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 mb-1 border border-[#25D366]/20">
+                                      <CheckCircle2 className="w-4 h-4" /> Pagamento Aprovado
+                                   </div>
+                                   <button 
+                                     onClick={() => updateOrderStatus(order.id, 'preparing')}
+                                     className="col-span-2 bg-primary text-dark py-4 rounded-2xl font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
+                                   >
+                                      <ChefHat className="w-4 h-4" /> Começar Preparo
+                                   </button>
+                                 </>
                                )}
                                {order.status === 'preparing' && (
                                  <button 

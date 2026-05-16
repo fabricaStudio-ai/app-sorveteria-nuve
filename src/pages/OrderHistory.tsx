@@ -28,21 +28,28 @@ export default function OrderHistory() {
 
     const fetchOrders = async () => {
       try {
-        // Query all orders across all stores for this user
-        const q = query(
-          collectionGroup(db, 'orders'),
-          where('userId', '==', user.uid),
-          orderBy('createdAt', 'desc')
-        );
-        const snapshot = await getDocs(q);
-        const fetched = snapshot.docs.map(doc => {
-          return {
-            id: doc.id,
-            ...doc.data(),
-            storeId: doc.ref.parent.parent?.id || 'default'
-          };
-        }) as (Order & { storeId: string })[];
-        setOrders(fetched);
+        // Query stores first to bypass collectionGroup index requirement
+        const storesSnap = await getDocs(collection(db, 'stores'));
+        let allOrders: (Order & { storeId: string })[] = [];
+        
+        for (const storeDoc of storesSnap.docs) {
+           const storeId = storeDoc.id;
+           const q = query(
+             collection(db, 'stores', storeId, 'orders'),
+             where('userId', '==', user.uid)
+           );
+           const snapshot = await getDocs(q);
+           const storeOrders = snapshot.docs.map(doc => ({
+             id: doc.id,
+             ...doc.data(),
+             storeId
+           })) as (Order & { storeId: string })[];
+           allOrders = [...allOrders, ...storeOrders];
+        }
+        
+        // Sort by dates descending in memory
+        allOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setOrders(allOrders);
       } catch (err) {
         console.error("Error fetching orders:", err);
       } finally {

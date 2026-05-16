@@ -26,6 +26,18 @@ export default function Orders() {
       }
 
       if (isSuccessParam === 'true' || searchParams.get('status') === 'approved') {
+        // Optimistically update order in DB if needed (fallback if webhook missed)
+        if (displayOrderId && displayStoreId) {
+          try {
+             await updateDoc(doc(db, 'stores', displayStoreId, 'orders', displayOrderId), {
+               paymentStatus: 'approved',
+               paymentApproved: true,
+               status: 'received'
+             });
+          } catch(e) {
+             console.error("Optimistic update failed:", e);
+          }
+        }
         clearCart();
         setStatus('success');
         
@@ -33,6 +45,15 @@ export default function Orders() {
            setTimeout(() => navigate(`/tracking/${displayStoreId}/${displayOrderId}`), 3000);
         }
       } else if (isPendingParam === 'true' || searchParams.get('status') === 'pending') {
+        if (displayOrderId && displayStoreId) {
+          try {
+             await updateDoc(doc(db, 'stores', displayStoreId, 'orders', displayOrderId), {
+               paymentStatus: 'pending'
+             });
+          } catch(e) {
+             console.error("Optimistic update failed:", e);
+          }
+        }
         setStatus('pending');
         if (displayOrderId) {
            setTimeout(() => navigate(`/tracking/${displayStoreId}/${displayOrderId}`), 3000);
