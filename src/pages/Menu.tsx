@@ -104,7 +104,7 @@ export default function Menu() {
         
         {/* Search Bar */}
         <div className="relative mb-6">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 opacity-30">
             <SearchIcon className="w-5 h-5" />
           </div>
           <input 
@@ -112,12 +112,12 @@ export default function Menu() {
             placeholder="O que você deseja hoje?"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full glass rounded-2xl py-4 pl-12 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all placeholder:text-white/20"
+            className="w-full glass rounded-2xl py-4 pl-12 pr-12 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all placeholder:opacity-20"
           />
           {searchQuery && (
             <button 
               onClick={() => setSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30"
+              className="absolute right-4 top-1/2 -translate-y-1/2 opacity-30"
             >
               <X className="w-4 h-4" />
             </button>
@@ -131,7 +131,7 @@ export default function Menu() {
             className={`px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest border transition-all duration-500 whitespace-nowrap ${
               activeCategory === 'todos' 
                 ? 'bg-primary text-dark border-primary shadow-[0_10px_20px_rgba(0,242,255,0.2)]' 
-                : 'glass border-white/5 text-white/30'
+                : 'glass border-foreground/5 opacity-30'
             }`}
           >
             Todos
@@ -143,7 +143,7 @@ export default function Menu() {
               className={`px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest border transition-all duration-500 flex items-center gap-2 whitespace-nowrap ${
                 activeCategory === cat.id 
                   ? 'bg-primary text-dark border-primary shadow-[0_10px_20px_rgba(0,242,255,0.2)]' 
-                  : 'glass border-white/5 text-white/30'
+                  : 'glass border-foreground/5 opacity-30'
               }`}
             >
               <span>{cat.icon}</span>

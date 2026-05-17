@@ -83,11 +83,11 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed inset-0 z-[90] max-w-md mx-auto bg-dark flex flex-col md:rounded-[3rem] md:inset-4 md:h-fit md:max-h-[90vh] overflow-hidden shadow-2xl"
+            className="fixed inset-0 z-[90] max-w-md mx-auto bg-[color:var(--color-bg)] flex flex-col md:rounded-[3rem] md:inset-4 md:h-fit md:max-h-[90vh] overflow-hidden shadow-2xl"
           >
             <div className="relative h-[40vh] flex-shrink-0">
               <img src={product.image} className="w-full h-full object-cover" alt={product.name} referrerPolicy="no-referrer" />
-              <div className="absolute inset-0 bg-gradient-to-t from-dark via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[color:var(--color-bg)] via-transparent to-transparent" />
               <button onClick={onClose} className="absolute top-6 right-6 p-3 glass rounded-2xl">
                 <X className="w-6 h-6" />
               </button>
@@ -103,9 +103,9 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
                 <div className="flex items-center gap-4">
                    <div className="flex items-center gap-1">
                       <Star className="w-4 h-4 text-primary fill-primary" />
-                      <span className="text-sm font-bold">{product.rating}</span>
+                      <span className="text-sm font-bold opacity-60">{(product.rating || 0).toFixed(1)}</span>
                    </div>
-                   <span className="text-white/20">|</span>
+                   <span className="text-foreground/20">|</span>
                    <span className="text-primary font-bold">R$ {(product.price || 0).toFixed(2)}</span>
                 </div>
               </div>
@@ -113,14 +113,14 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
 
             <div className="flex-1 overflow-y-auto px-8 py-8 flex flex-col gap-8">
               <div>
-                <h3 className="text-white/40 text-[10px] uppercase font-bold tracking-widest mb-3">Sobre esta delícia</h3>
-                <p className="text-white/70 leading-relaxed">{product.description}</p>
+                <h3 className="opacity-40 text-[10px] uppercase font-bold tracking-widest mb-3">Sobre esta delícia</h3>
+                <p className="opacity-70 leading-relaxed">{product.description}</p>
               </div>
 
               {showFlavors && (
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-white/40 text-[10px] uppercase font-bold tracking-widest">Escolha seus Sabores</h3>
+                    <h3 className="opacity-40 text-[10px] uppercase font-bold tracking-widest">Escolha seus Sabores</h3>
                     {isFlavorSelectionRequired && !hasFlavorsSelected && (
                       <span className="text-[9px] text-red-400 font-bold animate-pulse">SELECIONE PELO MENOS 1</span>
                     )}
@@ -138,7 +138,7 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
                           className={`px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 ${
                             isSelected 
                               ? 'bg-primary text-dark font-bold' 
-                              : 'glass text-white/50 hover:text-white disabled:opacity-30'
+                              : 'glass opacity-50 hover:opacity-100 disabled:opacity-30'
                           }`}
                         >
                           {isSelected && <Check className="w-3 h-3" />}
@@ -152,7 +152,7 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
 
               {showToppings && (
                 <div>
-                  <h3 className="text-white/40 text-[10px] uppercase font-bold tracking-widest mb-4">Adicionais & Coberturas</h3>
+                  <h3 className="opacity-40 text-[10px] uppercase font-bold tracking-widest mb-4">Adicionais & Coberturas</h3>
                   <div className="flex flex-wrap gap-2">
                     {TOPPINGS.map(topping => {
                       const isSelected = selectedToppings.includes(topping);
@@ -163,7 +163,7 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
                           className={`px-4 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-2 ${
                             isSelected 
                               ? 'bg-secondary text-white font-bold' 
-                              : 'glass text-white/50 hover:text-white'
+                              : 'glass opacity-50 hover:opacity-100'
                           }`}
                         >
                           {isSelected && <Check className="w-3 h-3" />}
@@ -176,17 +176,17 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
               )}
 
               <div>
-                <h3 className="text-white/40 text-[10px] uppercase font-bold tracking-widest mb-3">Observações (opcional)</h3>
+                <h3 className="opacity-40 text-[10px] uppercase font-bold tracking-widest mb-3">Observações (opcional)</h3>
                 <textarea 
                   placeholder="Alguma restrição ou pedido especial?"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full glass rounded-[1.5rem] p-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 h-24 placeholder:text-white/10 resize-none"
+                  className="w-full glass rounded-[1.5rem] p-4 text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 h-24 placeholder:opacity-10 resize-none"
                 />
               </div>
 
               <div className="flex items-center justify-between">
-                 <h3 className="text-white/40 text-[10px] uppercase font-bold tracking-widest">Quantidade</h3>
+                 <h3 className="opacity-40 text-[10px] uppercase font-bold tracking-widest">Quantidade</h3>
                  <div className="flex items-center glass rounded-2xl px-3 py-2 gap-6">
                     <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="p-1 hover:text-primary transition-colors">
                       <Minus className="w-5 h-5" />
@@ -199,11 +199,11 @@ export default function ProductModal({ product, isOpen, onClose }: { product: Pr
               </div>
             </div>
 
-            <div className="p-8 glass-dark border-t border-white/5 flex flex-col gap-3">
+            <div className="p-8 glass-dark border-t border-foreground/5 flex flex-col gap-3">
                <button
                  onClick={handleAdd}
                  disabled={!canContinue}
-                 className="w-full bg-white text-dark py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-[0_15px_40px_rgba(255,255,255,0.1)] flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-20 disabled:grayscale disabled:scale-100"
+                 className="w-full bg-foreground text-bg py-5 rounded-2xl font-black uppercase tracking-[0.2em] shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-20 disabled:grayscale disabled:scale-100"
                >
                  {canContinue ? `Adicionar (R$ ${((product.price || 0) * quantity).toFixed(2)})` : 'Selecione o sabor primeiro'}
                </button>

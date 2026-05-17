@@ -1,35 +1,49 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;1,700&display=swap');
 @import "tailwindcss";
 
+:root {
+  --background: #050505;
+  --foreground: #ffffff;
+  --muted: rgba(255, 255, 255, 0.4);
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+:root.light {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --muted: #64748b;
+  --glass: rgba(15, 23, 42, 0.03);
+  --glass-border: rgba(15, 23, 42, 0.08);
+}
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Playfair Display", serif;
   
   --color-primary: var(--primary, #00f2ff);
   --color-secondary: var(--secondary, #a855f7);
-  --color-bg: var(--background, #050505);
+  --color-bg: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-text-main: var(--foreground);
+  --color-text-muted: var(--muted);
   --color-dark: #09090b;
-  --color-glass: var(--glass, rgba(255, 255, 255, 0.03));
-  --color-glass-border: var(--glass-border, rgba(255, 255, 255, 0.1));
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
   --radius-xl: var(--radius-factor, 1rem);
   --radius-2xl: calc(var(--radius-factor, 1rem) * 1.5);
   --radius-3xl: calc(var(--radius-factor, 1rem) * 2);
 }
 
-:root.light {
-  --background: #f8fafc;
-  --glass: rgba(0, 0, 0, 0.03);
-  --glass-border: rgba(0, 0, 0, 0.08);
-}
-
 @layer base {
   body {
-    @apply bg-[color:var(--color-bg)] text-white font-sans antialiased selection:bg-primary/30;
+    @apply bg-[color:var(--color-bg)] text-foreground font-sans antialiased selection:bg-primary/30;
     -webkit-tap-highlight-color: transparent;
   }
   
-  .light body {
-    @apply text-slate-900;
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-foreground;
   }
 }
 
@@ -43,7 +57,11 @@
   }
 
   .neon-glow {
-    text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+    text-shadow: 0 0 10px var(--color-primary);
+  }
+  
+  .light .neon-glow {
+    text-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
   }
 
   @keyframes flash {

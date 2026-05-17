@@ -96,7 +96,7 @@ export default function Home() {
             </div>
           )}
           <div>
-            <h2 className="text-white/40 text-[10px] uppercase font-bold tracking-[0.3em] mb-1">Bem-vindo à</h2>
+            <h2 className="opacity-40 text-[10px] uppercase font-bold tracking-[0.3em] mb-1">Bem-vindo à</h2>
             <h1 className="text-2xl font-serif italic font-bold tracking-tighter neon-glow">
               {store?.name || profile?.appName || 'App Delivery'}
             </h1>
@@ -112,13 +112,13 @@ export default function Home() {
                  <Gift className="w-3 h-3 text-primary" />
                </div>
                <div className="flex flex-col">
-                 <span className="text-[8px] font-black uppercase tracking-widest text-white/40 leading-none">Pontos</span>
+                 <span className="text-[8px] font-black uppercase tracking-widest opacity-40 leading-none">Pontos</span>
                  <span className="text-xs font-bold text-primary leading-tight">{profile.points || 0}</span>
                </div>
              </motion.div>
            )}
            <div className="flex gap-2">
-             <button className="w-10 h-10 glass rounded-xl flex items-center justify-center text-white/60">
+             <button className="w-10 h-10 glass rounded-xl flex items-center justify-center opacity-60">
                <Bell className="w-5 h-5" />
              </button>
            </div>

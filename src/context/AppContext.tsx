@@ -135,6 +135,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Check for store in URL
       const urlParams = new URLSearchParams(window.location.search);
       const storeIdFromUrl = urlParams.get('store');
+      const storeNameFromUrl = urlParams.get('name');
+
+      if (storeIdFromUrl) {
+         setStore(prev => {
+            const base = (prev && prev.id === storeIdFromUrl) ? prev : { id: storeIdFromUrl, ownerId: storeIdFromUrl } as Store;
+            const updatedName = storeNameFromUrl || base.name || '';
+            if (base.name !== updatedName) {
+                return { ...base, name: updatedName };
+            }
+            return base;
+         });
+      }
 
       if (currentUser) {
         // Fetch or create profile

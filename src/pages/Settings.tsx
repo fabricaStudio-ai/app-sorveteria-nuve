@@ -272,7 +272,7 @@ export default function Settings() {
         detail: 'Compartilhar', 
         onClick: () => {
           const baseUrl = window.location.origin;
-          const storeUrl = `${baseUrl}/?store=${user?.uid}&name=${encodeURIComponent(store?.name || 'loja')}`;
+          const storeUrl = `${baseUrl}/?store=${user?.uid}&name=${encodeURIComponent(store?.name || profile?.appName || 'Loja')}`;
           console.log('Attempting to copy:', storeUrl);
           
           const textArea = document.createElement("textarea");

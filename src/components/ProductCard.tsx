@@ -43,7 +43,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
             className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-dark/90 via-dark/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[color:var(--color-bg)] via-transparent to-transparent" />
           
           {/* Top Layer Badges */}
           <div className="absolute top-4 left-4 flex flex-col gap-2">
@@ -70,9 +70,9 @@ export default function ProductCard({ product, index }: ProductCardProps) {
           </div>
 
           {/* Rating */}
-          <div className="absolute top-4 right-4 bg-black/40 backdrop-blur-md px-2.5 py-1.5 rounded-2xl flex items-center gap-1.5 border border-white/10">
+          <div className="absolute top-4 right-4 bg-foreground/20 backdrop-blur-md px-2.5 py-1.5 rounded-2xl flex items-center gap-1.5 border border-foreground/10">
             <Star className="w-3 h-3 text-primary fill-primary" />
-            <span className="text-xs font-bold">{(product.rating || 0).toFixed(1)}</span>
+            <span className="text-xs font-bold font-mono">{(product.rating || 0).toFixed(1)}</span>
           </div>
 
           {/* Favorite Button */}
@@ -82,8 +82,8 @@ export default function ProductCard({ product, index }: ProductCardProps) {
               setIsFavorite(!isFavorite);
             }}
             className={cn(
-              "absolute bottom-4 right-4 p-3 rounded-2xl transition-all duration-300 backdrop-blur-xl border border-white/10",
-              isFavorite ? "bg-red-500/80 text-white border-red-500/50" : "bg-black/20 text-white/60 hover:text-white"
+              "absolute bottom-4 right-4 p-3 rounded-2xl transition-all duration-300 backdrop-blur-xl border border-foreground/10",
+              isFavorite ? "bg-red-500/80 text-white border-red-500/50" : "bg-foreground/10 text-foreground opacity-60 hover:opacity-100"
             )}
           >
             <Heart className={cn("w-5 h-5", isFavorite && "fill-current")} />
@@ -98,15 +98,15 @@ export default function ProductCard({ product, index }: ProductCardProps) {
                )}
             </div>
             <h3 className="font-serif italic text-xl font-bold tracking-tight">{product.name}</h3>
-            <p className="text-white/40 text-xs line-clamp-2 mt-1.5 leading-relaxed font-medium">{product.description}</p>
+            <p className="opacity-40 text-xs line-clamp-2 mt-1.5 leading-relaxed font-medium">{product.description}</p>
           </div>
 
           <div className="flex items-center justify-between mt-2">
             <div className="flex flex-col">
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold tracking-tighter text-white">R$ {(product.price || 0).toFixed(2)}</span>
+                <span className="text-2xl font-bold tracking-tighter">R$ {(product.price || 0).toFixed(2)}</span>
                 {product.originalPrice && (
-                  <span className="text-sm text-white/20 line-through font-medium">R$ {(product.originalPrice || 0).toFixed(2)}</span>
+                  <span className="text-sm opacity-20 line-through font-medium">R$ {(product.originalPrice || 0).toFixed(2)}</span>
                 )}
               </div>
             </div>
@@ -115,7 +115,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={(e) => handleWhatsAppOrder(e)}
-                className="w-11 h-11 flex items-center justify-center rounded-2xl glass border-white/10 text-primary hover:bg-primary/10 transition-colors"
+                className="w-11 h-11 flex items-center justify-center rounded-2xl glass border-foreground/10 text-primary hover:bg-primary/10 transition-colors"
                 id={`btn-wa-${product.id}`}
               >
                 <MessageCircle className="w-5 h-5" />
@@ -127,7 +127,7 @@ export default function ProductCard({ product, index }: ProductCardProps) {
                   e.stopPropagation();
                   setIsModalOpen(true);
                 }}
-                className="w-11 h-11 flex items-center justify-center rounded-2xl bg-white text-dark hover:bg-primary transition-all duration-300"
+                className="w-11 h-11 flex items-center justify-center rounded-2xl bg-foreground text-bg hover:brightness-110 transition-all duration-300"
                 id={`btn-add-menu-${product.id}`}
               >
                 <Plus className="w-6 h-6" />
