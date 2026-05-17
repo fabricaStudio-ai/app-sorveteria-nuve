@@ -15,11 +15,7 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      let email = request.auth.token.get('email', '');
-      return isSignedIn() && (
-        (email.lower() == "fabricasoftwareai@gmail.com") ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-      );
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
     
     function isOwner(userId) {

@@ -308,6 +308,38 @@ export default function Settings() {
                  </div>
                </button>
              ))}
+             {userRole !== 'admin' && (
+                <button 
+                  onClick={() => {
+                    if (confirm("ATENÇÃO: Você está prestes a se tornar um Gestor de Loja. Esta ação é irreversível na plataforma e suas permissões serão alteradas. Deseja continuar?")) {
+                      // Implementation: add to admins collection and update profile
+                      const upgradeRole = async () => {
+                        if (!user) return;
+                        try {
+                          await setDoc(doc(db, 'admins', user.uid), {
+                            addedAt: new Date().toISOString(),
+                          });
+                          await updateDoc(doc(db, 'profiles', user.uid), {
+                            isAdmin: true
+                          });
+                          setUserRole('admin');
+                          alert("Parabéns! Você agora é um Gestor de Loja. Por favor, recarregue a página para aplicar as alterações.");
+                        } catch (error) {
+                          console.error("Failed to upgrade role:", error);
+                          alert("Ocorreu um erro ao atualizar sua permissão.");
+                        }
+                      };
+                      upgradeRole();
+                    }
+                  }}
+                  className="w-full p-6 flex items-center justify-between hover:bg-primary/5 transition-colors border-t border-white/5 text-primary"
+                >
+                  <div className="flex items-center gap-4">
+                     <Zap className="w-5 h-5" />
+                     <span className="font-bold text-sm">Quero ser um Gestor</span>
+                  </div>
+                </button>
+             )}
           </div>
         </section>
 
