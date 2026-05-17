@@ -351,11 +351,11 @@ app.post("/api/webhooks/mercadopago", async (req, res) => {
       
       if (currentDb && storeId) {
         const secretsSnap = await currentDb.collection("profiles").doc(storeId).collection("private").doc("secrets").get();
-        if (secretsSnap.exists()) {
+        if (secretsSnap.exists) {
            accessToken = secretsSnap.data()?.mpAccessToken || accessToken;
         } else {
            const profileSnap = await currentDb.collection("profiles").doc(storeId).get();
-           if (profileSnap.exists()) {
+           if (profileSnap.exists) {
              accessToken = profileSnap.data()?.mpAccessToken || accessToken;
            }
         }
@@ -367,7 +367,7 @@ app.post("/api/webhooks/mercadopago", async (req, res) => {
         if (!querySnapshot.empty) {
           const profileId = querySnapshot.docs[0].id;
           const secretsSnap = await currentDb.collection("profiles").doc(profileId).collection("private").doc("secrets").get();
-          accessToken = secretsSnap.exists() ? secretsSnap.data()?.mpAccessToken : querySnapshot.docs[0].data()?.mpAccessToken;
+          accessToken = secretsSnap.exists ? secretsSnap.data()?.mpAccessToken : querySnapshot.docs[0].data()?.mpAccessToken;
         }
       }
 

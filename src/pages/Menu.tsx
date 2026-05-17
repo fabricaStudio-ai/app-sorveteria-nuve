@@ -26,14 +26,14 @@ export default function Menu() {
         if (store?.id) {
           console.log("Fetching products for store:", store.id);
           const productsSnap = await getDocs(collection(db, 'stores', store.id, 'products'));
-          allFetchedProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: store.id } as Product));
+          allFetchedProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: store.id } as any as Product));
         } else {
           // PORTAL MODE
           const storesSnap = await getDocs(collection(db, 'stores'));
           if (!storesSnap.empty) {
             await Promise.all(storesSnap.docs.map(async (storeDoc) => {
               const productsSnap = await getDocs(collection(db, 'stores', storeDoc.id, 'products'));
-              const storeProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id } as Product));
+              const storeProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id } as any as Product));
               allFetchedProducts = [...allFetchedProducts, ...storeProducts];
             }));
           }

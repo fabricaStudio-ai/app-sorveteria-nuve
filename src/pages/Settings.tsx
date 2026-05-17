@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  ChevronLeft, User, Bell, Shield, Moon, CircleHelp, 
+  ChevronLeft, User, Bell, Shield, Sun, CircleHelp, 
   CreditCard, ExternalLink, X, CheckCircle2, Lock,
   Plus, AlertCircle, ChevronRight, Zap, Palette, Layout
 } from 'lucide-react';
@@ -14,7 +14,7 @@ import { cn } from '../lib/utils';
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { profile, userRole, user, setProfile, store, setStore } = useApp();
+  const { profile, userRole, setUserRole, user, setProfile, store, setStore } = useApp();
 
   const [saving, setSaving] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -23,6 +23,15 @@ export default function Settings() {
     publicKey: profile?.mpPublicKey || '',
     accessToken: profile?.mpAccessToken || ''
   });
+
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
   
   const [lalamoveForm, setLalamoveForm] = useState({
     apiKey: profile?.lalamoveApiKey || '',
@@ -264,13 +273,25 @@ export default function Settings() {
         onClick: () => {
           const baseUrl = window.location.origin;
           const storeUrl = `${baseUrl}/?store=${user?.uid}&name=${encodeURIComponent(store?.name || 'loja')}`;
-          navigator.clipboard.writeText(storeUrl);
-          alert(`Link copiado: ${storeUrl}`);
+          console.log('Attempting to copy:', storeUrl);
+          
+          const textArea = document.createElement("textarea");
+          textArea.value = storeUrl;
+          document.body.appendChild(textArea);
+          textArea.select();
+          try {
+            document.execCommand('copy');
+            setToast({ message: 'Link copiado para a área de transferência!', type: 'success' });
+          } catch (err) {
+            setToast({ message: 'Falha ao copiar. Tente selecionar o texto manualmente.', type: 'error' });
+            prompt('Copie o link abaixo:', storeUrl);
+          }
+          document.body.removeChild(textArea);
         } 
       }
     ] : []),
-    { icon: Bell, label: 'Notificações', detail: 'Ativadas' },
-    { icon: Shield, label: 'Privacidade', detail: 'Seguro' },
+    { icon: Bell, label: 'Notificações', detail: 'Ativadas', onClick: () => setToast({ message: 'Notificações já estão ativas.', type: 'success' }) },
+    { icon: Shield, label: 'Privacidade', detail: 'Seguro', onClick: () => setToast({ message: 'Seus dados estão protegidos.', type: 'success' }) },
   ];
 
   return (
@@ -286,6 +307,23 @@ export default function Settings() {
         </button>
         <h1 className="text-3xl font-serif italic font-bold">Configurações</h1>
       </header>
+
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className={cn(
+              "fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] px-6 py-4 rounded-3xl shadow-2xl backdrop-blur-xl border flex items-center gap-3",
+              toast.type === 'success' ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" : "bg-red-500/20 border-red-500/30 text-red-400"
+            )}
+          >
+            {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            <span className="text-xs font-black uppercase tracking-widest">{toast.message}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="space-y-8">
         {/* Account Section */}
@@ -323,10 +361,11 @@ export default function Settings() {
                             isAdmin: true
                           });
                           setUserRole('admin');
-                          alert("Parabéns! Você agora é um Gestor de Loja. Por favor, recarregue a página para aplicar as alterações.");
+                          setToast({ message: "Parabéns! Você agora é um Gestor de Loja.", type: 'success' });
+                          setTimeout(() => window.location.reload(), 2000);
                         } catch (error) {
                           console.error("Failed to upgrade role:", error);
-                          alert("Ocorreu um erro ao atualizar sua permissão.");
+                          setToast({ message: "Ocorreu um erro ao atualizar sua permissão.", type: 'error' });
                         }
                       };
                       upgradeRole();
@@ -533,10 +572,10 @@ export default function Settings() {
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 ml-4">Preferências</h3>
           <div className="glass rounded-[2rem] overflow-hidden">
              {[
-               { icon: Moon, label: 'Tema Escuro', detail: 'Sempre' },
-               { icon: CircleHelp, label: 'Ajuda & Suporte', detail: '' },
+               { icon: Sun, label: 'Tema Light', detail: 'Sempre', onClick: () => setToast({ message: 'Modo Light será disponibilizado em breve!', type: 'success' }) },
+               { icon: CircleHelp, label: 'Ajuda & Suporte', detail: '', onClick: () => window.open('https://api.whatsapp.com/send?phone=5548999999999', '_blank') },
              ].map((item, i) => (
-               <button key={i} className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+               <button key={i} onClick={item.onClick} className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
                  <div className="flex items-center gap-4">
                     <item.icon className="w-5 h-5 text-secondary" />
                     <span className="font-bold text-sm">{item.label}</span>

@@ -35,7 +35,7 @@ export default function Home() {
         if (store?.id) {
           console.log("Loading home data for store:", store.id);
           const productsSnap = await getDocs(query(collection(db, 'stores', store.id, 'products'), limit(30)));
-          allProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: store.id } as Product));
+          allProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: store.id } as any as Product));
           
           const promoSnap = await getDocs(query(collection(db, 'stores', store.id, 'promotions'), where('isActive', '==', true), limit(5)));
           allPromos = promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: store.id }));
@@ -45,7 +45,7 @@ export default function Home() {
           if (!storesSnap.empty) {
             await Promise.all(storesSnap.docs.map(async (storeDoc) => {
               const snap = await getDocs(query(collection(db, 'stores', storeDoc.id, 'products'), limit(15)));
-              const storeProducts = snap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id } as Product));
+              const storeProducts = snap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id } as any as Product));
               allProducts = [...allProducts, ...storeProducts];
               
               const promoSnap = await getDocs(query(collection(db, 'stores', storeDoc.id, 'promotions'), where('isActive', '==', true), limit(5)));
