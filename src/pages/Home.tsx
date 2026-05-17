@@ -11,7 +11,7 @@ import { Product } from '../types';
 import { Tag, Star, Gift } from 'lucide-react';
 
 export default function Home() {
-  const { cart, profile, addToCart } = useApp();
+  const { cart, profile, addToCart, store } = useApp();
   const [dbProducts, setDbProducts] = useState<Product[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [activeOffers, setActiveOffers] = useState<any[]>([]);
@@ -29,51 +29,45 @@ export default function Home() {
     const fetchHomeData = async () => {
       try {
         let allProducts: Product[] = [];
-        const storesSnap = await getDocs(collection(db, 'stores'));
-        
-        if (!storesSnap.empty) {
-          await Promise.all(storesSnap.docs.map(async (storeDoc) => {
-            const snap = await getDocs(query(collection(db, 'stores', storeDoc.id, 'products'), limit(15)));
-            const storeProducts = snap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id } as Product));
-            allProducts = [...allProducts, ...storeProducts];
-          }));
-        }
-        
-        // Root fallback
-        const rootSnap = await getDocs(query(collection(db, 'products'), limit(15)));
-        rootSnap.docs.forEach(doc => {
-          if (!allProducts.find(p => p.id === doc.id)) {
-            allProducts.push({ id: doc.id, ...doc.data() } as Product);
-          }
-        });
-        
-        setDbProducts(allProducts);
-        setFeaturedProducts(allProducts.filter(p => p.isBestSeller).slice(0, 3));
-        setPromoProducts(allProducts.filter(p => p.category === 'promocao'));
-        setCombos(allProducts.filter(p => p.category === 'combos'));
+        let allPromos: any[] = [];
 
-        // Fetch real promotions from all stores
-        try {
-          let allPromos: any[] = [];
+        // If we have a specific store in context, ONLY load from that store
+        if (store?.id) {
+          console.log("Loading home data for store:", store.id);
+          const productsSnap = await getDocs(query(collection(db, 'stores', store.id, 'products'), limit(30)));
+          allProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: store.id } as Product));
+          
+          const promoSnap = await getDocs(query(collection(db, 'stores', store.id, 'promotions'), where('isActive', '==', true), limit(5)));
+          allPromos = promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: store.id }));
+        } else {
+          // PORTAL MODE: Load from multiple stores or root (optional, for the main platform landing)
+          const storesSnap = await getDocs(collection(db, 'stores'));
           if (!storesSnap.empty) {
             await Promise.all(storesSnap.docs.map(async (storeDoc) => {
+              const snap = await getDocs(query(collection(db, 'stores', storeDoc.id, 'products'), limit(15)));
+              const storeProducts = snap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id } as Product));
+              allProducts = [...allProducts, ...storeProducts];
+              
               const promoSnap = await getDocs(query(collection(db, 'stores', storeDoc.id, 'promotions'), where('isActive', '==', true), limit(5)));
               allPromos = [...allPromos, ...promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id }))];
             }));
           }
           
-          const rootPromoSnap = await getDocs(query(collection(db, 'promotions'), where('isActive', '==', true), limit(5)));
-          rootPromoSnap.docs.forEach(doc => {
-            if (!allPromos.find(p => p.id === doc.id)) {
-              allPromos.push({ id: doc.id, ...doc.data() });
+          // Root fallback (legacy)
+          const rootSnap = await getDocs(query(collection(db, 'products'), limit(15)));
+          rootSnap.docs.forEach(doc => {
+            if (!allProducts.find(p => p.id === doc.id)) {
+              allProducts.push({ id: doc.id, ...doc.data() } as Product);
             }
           });
-           
-          setActiveOffers(allPromos);
-        } catch (err) {
-          console.error("Error fetching active offers:", err);
-          setActiveOffers([]);
         }
+        
+        setDbProducts(allProducts);
+        setFeaturedProducts(allProducts.filter(p => p.isBestSeller).slice(0, 6));
+        setPromoProducts(allProducts.filter(p => p.category === 'promocao' || p.category === 'combos')); // Showing both in promos for density
+        setCombos(allProducts.filter(p => p.category === 'combos'));
+        setActiveOffers(allPromos);
+
       } catch (e) {
         console.error("Error fetching home data:", e);
         setFeaturedProducts([]);
@@ -83,7 +77,7 @@ export default function Home() {
       }
     };
     fetchHomeData();
-  }, []);
+  }, [store]);
 
   return (
     <motion.div

@@ -251,7 +251,23 @@ export default function Settings() {
   const menuItems = [
     { icon: User, label: 'Editar Perfil', detail: profile?.name || 'Usuário', onClick: () => setShowProfileModal(true) },
     ...(userRole === 'admin' ? [
-      { icon: Zap, label: 'Identidade Visual', detail: profile?.appName || 'Padrão', onClick: () => setShowBrandingModal(true) }
+      { 
+        icon: Zap, 
+        label: 'Identidade Visual', 
+        detail: profile?.appName || 'Padrão', 
+        onClick: () => setShowBrandingModal(true) 
+      },
+      { 
+        icon: ExternalLink, 
+        label: 'Link da sua Loja', 
+        detail: 'Compartilhar', 
+        onClick: () => {
+          const baseUrl = window.location.origin;
+          const storeUrl = `${baseUrl}/?store=${user?.uid}`;
+          navigator.clipboard.writeText(storeUrl);
+          alert(`Link copiado: ${storeUrl}`);
+        } 
+      }
     ] : []),
     { icon: Bell, label: 'Notificações', detail: 'Ativadas' },
     { icon: Shield, label: 'Privacidade', detail: 'Seguro' },

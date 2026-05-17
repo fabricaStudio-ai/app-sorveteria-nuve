@@ -9,7 +9,7 @@ import { collection, addDoc, query, where, limit, getDocs } from 'firebase/fires
 import { cn } from '../lib/utils';
 
 export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const { cart, updateQuantity, removeFromCart, clearCart, profile, user: authUser } = useApp();
+  const { cart, updateQuantity, removeFromCart, clearCart, profile, user: authUser, store } = useApp();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [customerNameInput, setCustomerNameInput] = useState('');
@@ -28,6 +28,12 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
   useEffect(() => {
     const checkMP = async () => {
       try {
+        // If we have a store in context, check if it has MP connected
+        if (store?.mpPublicKey) {
+          setIsMPAvailable(true);
+          return;
+        }
+
         const q = query(collection(db, 'profiles'), where('mpConnected', '==', true), limit(1));
         const snap = await getDocs(q);
         setIsMPAvailable(!snap.empty);
@@ -36,13 +42,13 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
       }
     };
     checkMP();
-  }, []);
+  }, [store]);
 
   const getCustomerName = () => profile?.name || customerNameInput || 'Cliente Anônimo';
 
   const createOrderInFirestore = async (method: 'online' | 'whatsapp') => {
     try {
-      const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
+      const orderId = Math.floor(1000 + Math.random() * 9000).toString();
       const orderData = {
         userId: authUser?.uid || null,
         customerName: getCustomerName(),
@@ -69,18 +75,13 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
         paymentStatus: method === 'whatsapp' ? 'pending' : 'pending',
         paymentApproved: false,
         createdAt: new Date().toISOString(),
-        orderNumber: orderNumber
+        orderNumber: orderId,
+        storeId: store?.id || 'default'
       };
       
-      // Identify target store
-      let storeId = 'default';
-      const storesSnap = await getDocs(query(collection(db, 'stores'), limit(1)));
-      if (!storesSnap.empty) {
-        storeId = storesSnap.docs[0].id;
-      }
-
+      const storeId = store?.id || 'default';
       const docRef = await addDoc(collection(db, 'stores', storeId, 'orders'), orderData);
-      return { id: docRef.id, orderNumber, storeId };
+      return { id: docRef.id, orderNumber: orderId, storeId };
     } catch (e) {
       console.error("Error creating order:", e);
       return null;

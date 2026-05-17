@@ -112,6 +112,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
+      
+      // Check for store in URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const storeIdFromUrl = urlParams.get('store');
+
       if (currentUser) {
         // Fetch or create profile
         const profileRef = doc(db, 'profiles', currentUser.uid);
@@ -123,7 +128,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Fetch store
+        // Fetch user's own store if it exists
         const storeRef = doc(db, 'stores', currentUser.uid);
         let storeSnap;
         try {
@@ -141,14 +146,40 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
         
-        if (storeSnap.exists()) {
-             setStore({ id: storeSnap.id, ...storeSnap.data() } as Store);
+        // If we have a storeId in URL, prioritize that branding/view for the user
+        // unless they are an admin looking at their own store.
+        if (storeIdFromUrl) {
+          try {
+            const urlStoreRef = doc(db, 'stores', storeIdFromUrl);
+            const urlStoreSnap = await getDoc(urlStoreRef);
+            if (urlStoreSnap.exists()) {
+              setStore({ id: urlStoreSnap.id, ...urlStoreSnap.data() } as Store);
+            }
+          } catch (e) {
+            console.error("Error fetching store from URL:", e);
+          }
+        } else if (storeSnap.exists()) {
+          setStore({ id: storeSnap.id, ...storeSnap.data() } as Store);
         }
 
       } else {
         setProfile(null);
-        setStore(null);
         setUserRole(null);
+        
+        // If guest has storeId in URL, load it
+        if (storeIdFromUrl) {
+          try {
+            const urlStoreRef = doc(db, 'stores', storeIdFromUrl);
+            const urlStoreSnap = await getDoc(urlStoreRef);
+            if (urlStoreSnap.exists()) {
+              setStore({ id: urlStoreSnap.id, ...urlStoreSnap.data() } as Store);
+            }
+          } catch (e) {
+            console.error("Error fetching store from URL for guest:", e);
+          }
+        } else {
+          setStore(null);
+        }
       }
       setLoading(false);
     });

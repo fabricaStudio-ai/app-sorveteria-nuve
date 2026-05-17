@@ -10,7 +10,7 @@ import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function Menu() {
-  const { profile } = useApp();
+  const { profile, store } = useApp();
   const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState('todos');
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,29 +23,31 @@ export default function Menu() {
         setLoading(true);
         let allFetchedProducts: Product[] = [];
         
-        // Try to find all stores to fetch products from
-        const storesSnap = await getDocs(collection(db, 'stores'));
-        if (!storesSnap.empty) {
-          // Fetch from all stores to be safe during transition
-          await Promise.all(storesSnap.docs.map(async (storeDoc) => {
-            const productsSnap = await getDocs(collection(db, 'stores', storeDoc.id, 'products'));
-            const storeProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id } as Product));
-            allFetchedProducts = [...allFetchedProducts, ...storeProducts];
-          }));
-          console.log(`Fetched ${allFetchedProducts.length} products from ${storesSnap.size} stores`);
-        }
-        
-        // Also fetch from root products to ensure no data is lost during transition
-        const rootSnap = await getDocs(collection(db, 'products'));
-        if (!rootSnap.empty) {
-          const rootProducts = rootSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
-          // Filter out duplicates if any (by ID)
-          rootProducts.forEach(rp => {
-            if (!allFetchedProducts.find(ap => ap.id === rp.id)) {
-              allFetchedProducts.push(rp);
-            }
-          });
-          console.log(`Added ${rootSnap.size} products from root`);
+        if (store?.id) {
+          console.log("Fetching products for store:", store.id);
+          const productsSnap = await getDocs(collection(db, 'stores', store.id, 'products'));
+          allFetchedProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: store.id } as Product));
+        } else {
+          // PORTAL MODE
+          const storesSnap = await getDocs(collection(db, 'stores'));
+          if (!storesSnap.empty) {
+            await Promise.all(storesSnap.docs.map(async (storeDoc) => {
+              const productsSnap = await getDocs(collection(db, 'stores', storeDoc.id, 'products'));
+              const storeProducts = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id } as Product));
+              allFetchedProducts = [...allFetchedProducts, ...storeProducts];
+            }));
+          }
+          
+          // Legacy check
+          const rootSnap = await getDocs(collection(db, 'products'));
+          if (!rootSnap.empty) {
+            const rootProducts = rootSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+            rootProducts.forEach(rp => {
+              if (!allFetchedProducts.find(ap => ap.id === rp.id)) {
+                allFetchedProducts.push(rp);
+              }
+            });
+          }
         }
         
         setAllProducts(allFetchedProducts);
@@ -57,7 +59,7 @@ export default function Menu() {
       }
     };
     fetchProducts();
-  }, []);
+  }, [store]);
 
   const filteredProducts = allProducts.filter(product => {
     const matchesCategory = activeCategory === 'todos' || product.category === activeCategory;

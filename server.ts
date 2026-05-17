@@ -305,7 +305,7 @@ app.post("/api/create-preference", async (req, res) => {
         ].filter(Boolean).join(" | "),
       })),
       external_reference: storeId && orderId ? `${storeId}:${orderId}` : orderId,
-      notification_url: `${appUrl}/api/webhooks/mercadopago`,
+      notification_url: `${appUrl}/api/webhooks/mercadopago${storeId ? `?storeId=${storeId}` : ""}`,
       back_urls: {
         success: success_url || `${appUrl}/orders?success=true`,
         failure: failure_url || `${appUrl}/menu`,
@@ -334,55 +334,89 @@ app.post("/api/create-preference", async (req, res) => {
 
 app.post("/api/webhooks/mercadopago", async (req, res) => {
   const { data, type, action } = req.body;
-  console.log("Webhook received:", { type, action, data });
+  const storeIdFromQuery = req.query.storeId as string;
+  console.log("Webhook received:", { type, action, data, storeIdFromQuery });
   
   if (type === "payment" && data?.id) {
     try {
       const currentDb = await getDb();
-      // 1. Fetch manager token (reused logic for simplicity)
+      
+      // 1. Fetch manager token for THIS store
       let accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
-      if (!accessToken || accessToken === 'YOUR_ACCESS_TOKEN') {
-        if (!currentDb) throw new Error("Database not initialized on server");
+      let storeId = storeIdFromQuery;
+      
+      // If we don't have storeId from query, we might have to wait until we catch it from external_reference
+      // but to fetch paymentData we NEED an access token.
+      // We prioritize the query param or falling back to a global one to at least try fetching.
+      
+      if (currentDb && storeId) {
+        const secretsSnap = await currentDb.collection("profiles").doc(storeId).collection("private").doc("secrets").get();
+        if (secretsSnap.exists()) {
+           accessToken = secretsSnap.data()?.mpAccessToken || accessToken;
+        } else {
+           const profileSnap = await currentDb.collection("profiles").doc(storeId).get();
+           if (profileSnap.exists()) {
+             accessToken = profileSnap.data()?.mpAccessToken || accessToken;
+           }
+        }
+      }
 
+      // If we still have 'YOUR_ACCESS_TOKEN' or none, try to find any connected manager as last resort
+      if (currentDb && (!accessToken || accessToken === 'YOUR_ACCESS_TOKEN')) {
         const querySnapshot = await currentDb.collection("profiles").where("mpConnected", "==", true).limit(1).get();
         if (!querySnapshot.empty) {
           const profileId = querySnapshot.docs[0].id;
-          const secretsSnap = await currentDb.collection("profiles").doc(profileId).collection("private").limit(1).get();
-          accessToken = !secretsSnap.empty ? secretsSnap.docs[0].data().mpAccessToken : querySnapshot.docs[0].data().mpAccessToken;
+          const secretsSnap = await currentDb.collection("profiles").doc(profileId).collection("private").doc("secrets").get();
+          accessToken = secretsSnap.exists() ? secretsSnap.data()?.mpAccessToken : querySnapshot.docs[0].data()?.mpAccessToken;
         }
       }
 
-      if (!accessToken || accessToken === 'YOUR_ACCESS_TOKEN') throw new Error("No token");
+      if (!accessToken || accessToken === 'YOUR_ACCESS_TOKEN') {
+        throw new Error("No access token found to process webhook");
+      }
 
-      // 2. Fetch payment details directly
+      // 2. Fetch payment details
       const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${data.id}`, {
         headers: { 'Authorization': `Bearer ${accessToken}` }
       });
-      const payment = await paymentResponse.json();
+      const paymentData = await paymentResponse.json();
 
-      // 3. Update Order
-      const ref = payment.external_reference;
-      if (ref && currentDb) {
-        let orderRef;
+      // 3. Extract IDs from external_reference if not already known
+      const ref = paymentData.external_reference;
+      let orderId: string | null = null;
+      if (ref) {
         if (ref.includes(':')) {
-          const [sId, oId] = ref.split(':');
-          orderRef = currentDb.collection("stores").doc(sId).collection("orders").doc(oId);
+          const parts = ref.split(':');
+          storeId = parts[0];
+          orderId = parts[1];
         } else {
-          // Fallback to old path
-          orderRef = currentDb.collection("orders").doc(ref);
+          orderId = ref;
         }
+      }
+
+      // 4. Update Order
+      if (orderId && currentDb) {
+        const path = storeId 
+          ? `stores/${storeId}/orders/${orderId}`
+          : `orders/${orderId}`;
+          
+        const orderRef = storeId
+          ? currentDb.collection("stores").doc(storeId).collection("orders").doc(orderId)
+          : currentDb.collection("orders").doc(orderId);
         
         await orderRef.set({
-          paymentStatus: payment.status,
-          status: payment.status === 'approved' ? 'received' : 'pending_payment',
-          paymentApproved: payment.status === 'approved'
+          paymentStatus: paymentData.status,
+          status: paymentData.status === 'approved' ? 'received' : 'pending_payment',
+          paymentApproved: paymentData.status === 'approved',
+          updatedAt: new Date().toISOString()
         }, { merge: true });
-        console.log(`Order ${ref} updated to ${payment.status}`);
+        
+        console.log(`Order ${path} updated to ${paymentData.status}`);
       }
       res.status(200).send("OK");
-    } catch (e) {
+    } catch (e: any) {
       console.error("Webhook error:", e);
-      res.status(500).send("Error");
+      res.status(500).send(e.message);
     }
   } else {
     res.status(200).send("Ignored");
