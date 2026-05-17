@@ -11,9 +11,9 @@ import { Product } from '../types';
 import { Tag, Star, Gift } from 'lucide-react';
 
 export default function Home() {
-  const { cart, profile, addToCart, store } = useApp();
-  const [dbProducts, setDbProducts] = useState<Product[]>([]);
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+        const { cart, profile, addToCart, store, theme, toggleTheme } = useApp();
+        const [dbProducts, setDbProducts] = useState<Product[]>([]);
+        const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [activeOffers, setActiveOffers] = useState<any[]>([]);
   const [promoProducts, setPromoProducts] = useState<Product[]>([]);
   const [combos, setCombos] = useState<Product[]>([]);
@@ -63,8 +63,9 @@ export default function Home() {
         }
         
         setDbProducts(allProducts);
-        setFeaturedProducts(allProducts.filter(p => p.isBestSeller).slice(0, 6));
-        setPromoProducts(allProducts.filter(p => p.category === 'promocao' || p.category === 'combos')); // Showing both in promos for density
+        const bestSellers = allProducts.filter(p => p.isBestSeller).slice(0, 6);
+        setFeaturedProducts(bestSellers.length > 0 ? bestSellers : allProducts.slice(0, 10));
+        setPromoProducts(allProducts.filter(p => p.category === 'promocao' || p.category === 'combos')); 
         setCombos(allProducts.filter(p => p.category === 'combos'));
         setActiveOffers(allPromos);
 

@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { WHATSAPP_PHONE } from '../constants';
 import { createPreference } from '../lib/mercadopago';
 import { db } from '../lib/firebase';
-import { collection, addDoc, query, where, limit, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, where, limit, getDocs, doc, updateDoc, increment } from 'firebase/firestore';
 import { cn } from '../lib/utils';
 
 export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
@@ -80,6 +80,20 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
       };
       
       const storeId = store?.id || 'default';
+      
+      // Reduce stock for each item
+      await Promise.all(cart.map(async (item) => {
+        try {
+          const productRef = doc(db, 'stores', storeId, 'products', item.id);
+          await updateDoc(productRef, {
+            stock: increment(-item.quantity)
+          });
+        } catch (e) {
+          console.error(`Error updating stock for product ${item.id}:`, e);
+          // Non-blocking for now, but in production we might want to check availability first
+        }
+      }));
+
       const docRef = await addDoc(collection(db, 'stores', storeId, 'orders'), orderData);
       return { id: docRef.id, orderNumber: orderId, storeId };
     } catch (e) {

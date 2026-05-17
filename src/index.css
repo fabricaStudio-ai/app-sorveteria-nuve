@@ -9,17 +9,27 @@
   --color-secondary: var(--secondary, #a855f7);
   --color-bg: var(--background, #050505);
   --color-dark: #09090b;
-  --color-glass: rgba(255, 255, 255, 0.03);
-  --color-glass-border: rgba(255, 255, 255, 0.1);
+  --color-glass: var(--glass, rgba(255, 255, 255, 0.03));
+  --color-glass-border: var(--glass-border, rgba(255, 255, 255, 0.1));
   --radius-xl: var(--radius-factor, 1rem);
   --radius-2xl: calc(var(--radius-factor, 1rem) * 1.5);
   --radius-3xl: calc(var(--radius-factor, 1rem) * 2);
+}
+
+:root.light {
+  --background: #f8fafc;
+  --glass: rgba(0, 0, 0, 0.03);
+  --glass-border: rgba(0, 0, 0, 0.08);
 }
 
 @layer base {
   body {
     @apply bg-[color:var(--color-bg)] text-white font-sans antialiased selection:bg-primary/30;
     -webkit-tap-highlight-color: transparent;
+  }
+  
+  .light body {
+    @apply text-slate-900;
   }
 }
 

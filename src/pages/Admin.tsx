@@ -80,7 +80,7 @@ import { cn } from '../lib/utils';
 const COLORS = ['#00f2ff', '#7000ff', '#ff00d4', '#ff8c00', '#00ff8c'];
 
 export default function Admin() {
-  const { user, profile, store, loading: authLoading, setUserRole } = useApp();
+  const { user, profile, store, loading: authLoading, setUserRole, userRole } = useApp();
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
@@ -841,36 +841,39 @@ export default function Admin() {
 
   if (authLoading && !profile) {
     return (
-      <div className="min-h-screen bg-dark flex flex-col items-center justify-center gap-4">
+      <div className="min-h-screen bg-[color:var(--color-bg)] flex flex-col items-center justify-center gap-4">
         <div className="w-12 h-12 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
         <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">Verificando acesso na nuvem...</p>
       </div>
     );
   }
   
-  if (!profile?.isAdmin) {
-    const isBootstrapEmail = user?.email?.toLowerCase().trim() === 'fabricasoftwareai@gmail.com';
+  if (userRole !== 'admin') {
+    const isBootstrapEmail = user?.email?.toLowerCase().trim() === 'fabricasoftwareai@gmail.com' || user?.email?.toLowerCase().trim() === 'animesgospelas1@gmail.com';
     
     return (
-      <div className="min-h-screen bg-dark flex flex-col items-center justify-center p-6 text-center gap-6">
+      <div className="min-h-screen bg-[color:var(--color-bg)] flex flex-col items-center justify-center p-6 text-center gap-6">
         <div className="w-20 h-20 bg-red-500/10 rounded-[2.5rem] flex items-center justify-center border border-red-500/20">
           <AlertCircle className="w-10 h-10 text-red-500" />
         </div>
         <div className="space-y-2">
           <h1 className="text-3xl font-serif italic font-bold">Acesso Negado</h1>
-          <p className="text-white/40 text-sm max-w-xs mx-auto">
+          <p className="text-white/40 text-sm max-w-xs mx-auto text-balance">
             Sua conta (<span className="text-white/60 font-mono text-[10px]">{user?.email}</span>) não tem permissões de gestor na Nuvê.
           </p>
           {isBootstrapEmail && (
             <p className="text-primary/60 text-[9px] uppercase font-black tracking-widest mt-4">
-              Você é um administrador mestre. Clique abaixo para sincronizar seu acesso.
+              Você é um administrador. Clique abaixo para sincronizar seu acesso.
             </p>
           )}
         </div>
         <div className="flex flex-col gap-3 w-full max-w-xs">
           {isBootstrapEmail ? (
             <button 
-              onClick={() => window.location.reload()} 
+              onClick={() => {
+                setUserRole('admin');
+                setTimeout(() => window.location.reload(), 500);
+              }} 
               className="w-full bg-primary text-dark py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all flex items-center justify-center gap-2"
             >
               <RefreshCw className="w-4 h-4" /> Sincronizar Agora

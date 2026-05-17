@@ -14,7 +14,7 @@ import { cn } from '../lib/utils';
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { profile, userRole, setUserRole, user, setProfile, store, setStore } = useApp();
+  const { profile, userRole, setUserRole, user, setProfile, store, setStore, theme, toggleTheme } = useApp();
 
   const [saving, setSaving] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -299,7 +299,7 @@ export default function Settings() {
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="min-h-screen bg-dark text-white p-6 pb-32"
+      className="min-h-screen bg-[color:var(--color-bg)] text-[color:var(--color-text)] p-6 pb-32"
     >
       <header className="flex items-center gap-4 mb-8">
         <button onClick={() => navigate(-1)} className="p-3 glass rounded-2xl">
@@ -572,7 +572,7 @@ export default function Settings() {
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 ml-4">Preferências</h3>
           <div className="glass rounded-[2rem] overflow-hidden">
              {[
-               { icon: Sun, label: 'Tema Light', detail: 'Sempre', onClick: () => setToast({ message: 'Modo Light será disponibilizado em breve!', type: 'success' }) },
+               { icon: Sun, label: theme === 'dark' ? 'Tema Light' : 'Tema Dark', detail: theme === 'dark' ? 'Ativar' : 'Ativar', onClick: toggleTheme },
                { icon: CircleHelp, label: 'Ajuda & Suporte', detail: '', onClick: () => window.open('https://api.whatsapp.com/send?phone=5548999999999', '_blank') },
              ].map((item, i) => (
                <button key={i} onClick={item.onClick} className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">

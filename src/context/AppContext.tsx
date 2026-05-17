@@ -61,6 +61,8 @@ interface AppContextType {
   loading: boolean;
   userRole: 'admin' | 'customer' | null;
   setUserRole: (role: 'admin' | 'customer' | null) => void;
+  theme: 'dark' | 'light';
+  toggleTheme: () => void;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile | null>>;
   setStore: React.Dispatch<React.SetStateAction<Store | null>>;
 }
@@ -75,6 +77,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [store, setStore] = useState<Store | null>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, _setUserRole] = useState<'admin' | 'customer' | null>(null);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+    document.documentElement.classList.toggle('light', newTheme === 'light');
+    localStorage.setItem('app-theme', newTheme);
+  };
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('app-theme') as 'dark' | 'light';
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.classList.toggle('light', savedTheme === 'light');
+    }
+  }, []);
 
   const setUserRole = (role: 'admin' | 'customer' | null) => {
     _setUserRole(role);
@@ -239,6 +257,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       loading,
       userRole,
       setUserRole,
+      theme,
+      toggleTheme,
       setProfile,
       setStore
     }}>
