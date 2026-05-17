@@ -190,7 +190,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const urlStoreRef = doc(db, 'stores', storeIdFromUrl);
             const urlStoreSnap = await getDoc(urlStoreRef);
             if (urlStoreSnap.exists()) {
-              setStore({ id: urlStoreSnap.id, ...urlStoreSnap.data() } as Store);
+              const urlStoreData = urlStoreSnap.data() as Store;
+              setStore({ 
+                id: urlStoreSnap.id, 
+                ...urlStoreData,
+                name: storeNameFromUrl || urlStoreData.name
+              });
             }
           } catch (e) {
             console.error("Error fetching store from URL:", e);
