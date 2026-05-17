@@ -263,7 +263,7 @@ export default function Settings() {
         detail: 'Compartilhar', 
         onClick: () => {
           const baseUrl = window.location.origin;
-          const storeUrl = `${baseUrl}/?store=${user?.uid}`;
+          const storeUrl = `${baseUrl}/?store=${user?.uid}&name=${encodeURIComponent(store?.name || 'loja')}`;
           navigator.clipboard.writeText(storeUrl);
           alert(`Link copiado: ${storeUrl}`);
         } 

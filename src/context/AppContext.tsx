@@ -29,6 +29,7 @@ interface UserProfile {
 
 interface Store {
   id: string;
+  slug?: string;
   name: string;
   ownerId: string;
   logoUrl?: string;
