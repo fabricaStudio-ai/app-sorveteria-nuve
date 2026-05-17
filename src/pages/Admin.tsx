@@ -909,7 +909,7 @@ export default function Admin() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-primary/30">
+    <div className="min-h-screen bg-bg text-foreground font-sans selection:bg-primary/30">
       <div className="flex flex-col min-h-screen">
         
         {/* Main Content Area */}

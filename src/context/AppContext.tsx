@@ -135,7 +135,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Check for store in URL
       const urlParams = new URLSearchParams(window.location.search);
       const storeIdFromUrl = urlParams.get('store');
-      const storeNameFromUrl = urlParams.get('name');
+      const storeNameFromUrl = urlParams.get('name') ? decodeURIComponent(urlParams.get('name')!) : null;
 
       if (storeIdFromUrl) {
          setStore(prev => {
@@ -149,6 +149,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (currentUser) {
+        // Auto-admin for bootstrap emails
+        const isBootstrapEmail = ['fabricasoftwareai@gmail.com', 'animesgospelas1@gmail.com'].includes(currentUser.email?.toLowerCase().trim() || '');
+        if (isBootstrapEmail) {
+          _setUserRole('admin');
+        }
+
         // Fetch or create profile
         const profileRef = doc(db, 'profiles', currentUser.uid);
         let profileSnap;

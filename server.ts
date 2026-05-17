@@ -268,9 +268,9 @@ app.post("/api/create-preference", async (req, res) => {
       }
 
       if (profileId) {
-        const secretsSnap = await currentDb.collection("profiles").doc(profileId).collection("private").limit(1).get();
-        if (!secretsSnap.empty) {
-          accessToken = secretsSnap.docs[0].data().mpAccessToken;
+        const secretsSnap = await currentDb.collection("profiles").doc(profileId).collection("private").doc("secrets").get();
+        if (secretsSnap.exists) {
+          accessToken = secretsSnap.data()?.mpAccessToken;
         } else {
           const profileSnap = await currentDb.collection("profiles").doc(profileId).get();
           accessToken = profileSnap.data()?.mpAccessToken;

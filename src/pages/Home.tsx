@@ -52,14 +52,6 @@ export default function Home() {
               allPromos = [...allPromos, ...promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: storeDoc.id }))];
             }));
           }
-          
-          // Root fallback (legacy)
-          const rootSnap = await getDocs(query(collection(db, 'products'), limit(15)));
-          rootSnap.docs.forEach(doc => {
-            if (!allProducts.find(p => p.id === doc.id)) {
-              allProducts.push({ id: doc.id, ...doc.data() } as Product);
-            }
-          });
         }
         
         setDbProducts(allProducts);
@@ -144,16 +136,16 @@ export default function Home() {
                     </div>
                     <h4 className="text-lg font-serif italic font-bold leading-tight line-clamp-2">{promo.title}</h4>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-xl font-black text-white leading-none">{promo.discount}</p>
+                      <p className="text-xl font-black text-foreground leading-none">{promo.discount}</p>
                       {promo.price && (
                         <>
-                          <span className="w-1 h-1 bg-white/20 rounded-full" />
+                          <span className="w-1 h-1 bg-foreground/10 rounded-full" />
                           <p className="text-lg font-bold text-primary">R$ {parseFloat(promo.price).toFixed(2).replace('.', ',')}</p>
                         </>
                       )}
                     </div>
                     {promo.code && (
-                      <p className="text-[10px] text-white/40 font-bold uppercase tracking-widest leading-relaxed mt-2">Use: <span className="text-white bg-white/10 px-2 py-0.5 rounded-lg">{promo.code}</span></p>
+                      <p className="text-[10px] text-foreground opacity-40 font-bold uppercase tracking-widest leading-relaxed mt-2">Use: <span className="text-foreground bg-foreground/10 px-2 py-0.5 rounded-lg">{promo.code}</span></p>
                     )}
                     
                     {promo.price && (
@@ -192,9 +184,9 @@ export default function Home() {
 
       {/* Categories */}
       <section className="mb-10 overflow-hidden">
-        <h3 className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em] mb-5 px-1">Categorias</h3>
-        <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1">
-          {CATEGORIES.map((cat, idx) => (
+        <h3 className="opacity-60 text-[10px] font-black uppercase tracking-[0.2em] mb-5 px-1">Categorias</h3>
+        <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1 scrollbar-none">
+          {CATEGORIES.filter(cat => dbProducts.some(p => p.category === cat.id)).map((cat, idx) => (
             <motion.div
               key={cat.id}
               initial={{ opacity: 0, scale: 0.8 }}
@@ -202,24 +194,62 @@ export default function Home() {
               transition={{ delay: 0.3 + (idx * 0.1) }}
               className="flex-shrink-0 flex flex-col items-center gap-3"
             >
-              <div className="w-16 h-16 glass rounded-3xl flex items-center justify-center group-active:scale-95 transition-transform duration-200 cursor-pointer shadow-lg border-white/5">
+              <div className="w-16 h-16 glass rounded-3xl flex items-center justify-center group-active:scale-95 transition-transform duration-200 cursor-pointer shadow-lg bg-glass">
                 <span className="text-2xl">{cat.icon}</span>
               </div>
-              <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">{cat.name}</span>
+              <span className="text-[10px] font-bold opacity-40 uppercase tracking-wider">{cat.name}</span>
             </motion.div>
           ))}
+          {/* Always add "Todos" category if not present */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.8 }}
+            className="flex-shrink-0 flex flex-col items-center gap-3"
+            onClick={() => {
+              // Navigate to menu or scroll to Todos section
+              const el = document.getElementById('all-products-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            <div className="w-16 h-16 glass rounded-3xl flex items-center justify-center bg-primary/20 text-primary border-primary/20">
+              <ShoppingBag className="w-6 h-6" />
+            </div>
+            <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Todos</span>
+          </motion.div>
         </div>
       </section>
 
       {/* Featured Products */}
       <section className="mb-10">
         <div className="flex items-center justify-between mb-6 px-1">
-          <h3 className="text-white/60 text-[10px] font-black uppercase tracking-[0.2em]">Sabor que Alivia</h3>
-          <button className="text-primary text-[10px] font-black uppercase tracking-widest flex items-center gap-1">Cardápio <ArrowRight className="w-3 h-3" /></button>
+          <h3 className="opacity-60 text-[10px] font-black uppercase tracking-[0.2em]">Sabor que Alivia</h3>
+          <button 
+            onClick={() => {
+               const el = document.getElementById('all-products-section');
+               if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="text-primary text-[10px] font-black uppercase tracking-widest flex items-center gap-1"
+          >
+            Cardápio <ArrowRight className="w-3 h-3" />
+          </button>
         </div>
         <div className="grid grid-cols-1 gap-8 pb-2">
           {featuredProducts.map((product, idx) => (
             <ProductCard key={`featured-${product.id}`} product={product} index={idx} />
+          ))}
+        </div>
+      </section>
+
+      {/* All Products Section */}
+      <section id="all-products-section" className="mb-10">
+        <div className="flex items-center justify-between mb-6 px-1">
+          <h3 className="opacity-60 text-[10px] font-black uppercase tracking-[0.2em]">Todos os Produtos</h3>
+          <span className="text-[8px] font-black opacity-20 uppercase tracking-widest">{dbProducts.length} itens</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-2">
+          {dbProducts.map((product, idx) => (
+            <ProductCard key={`all-${product.id}`} product={product} index={idx} />
           ))}
         </div>
       </section>

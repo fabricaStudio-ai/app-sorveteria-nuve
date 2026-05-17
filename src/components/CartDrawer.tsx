@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingBag, X, Trash2, Plus, Minus, ArrowRight, MessageCircle, CreditCard, Loader2, User as UserIcon, MapPin, Store, Gift } from 'lucide-react';
+import { ShoppingBag, X, Trash2, Plus, Minus, ArrowRight, MessageCircle, CreditCard, Loader2, User as UserIcon, MapPin, Store, Gift, Zap, Banknote } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useState, useEffect } from 'react';
 import { WHATSAPP_PHONE } from '../constants';
@@ -17,6 +17,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
   const [address, setAddress] = useState('');
   const [isMPAvailable, setIsMPAvailable] = useState(false);
   const [usePoints, setUsePoints] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'online' | 'delivery_pix' | 'delivery_card' | 'delivery_cash'>('online');
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
   const pointsToCash = (profile?.points || 0) / 10;
@@ -44,6 +45,13 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
     checkMP();
   }, [store]);
 
+  useEffect(() => {
+    // If MP not available, default to delivery_pix
+    if (!isMPAvailable && paymentMethod === 'online') {
+      setPaymentMethod('delivery_pix');
+    }
+  }, [isMPAvailable]);
+
   const getCustomerName = () => profile?.name || customerNameInput || 'Cliente Anônimo';
 
   const createOrderInFirestore = async (method: 'online' | 'whatsapp') => {
@@ -70,9 +78,9 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
             zipCode: '00000-000',
           }
         } : {}),
-        status: method === 'online' ? 'pending_payment' : 'received',
-        paymentMethodId: method === 'online' ? 'mercadopago' : 'whatsapp',
-        paymentStatus: method === 'whatsapp' ? 'pending' : 'pending',
+        status: paymentMethod === 'online' ? 'pending_payment' : 'received',
+        paymentMethodId: paymentMethod,
+        paymentStatus: paymentMethod === 'online' ? 'pending' : 'pending',
         paymentApproved: false,
         createdAt: new Date().toISOString(),
         orderNumber: orderId,
@@ -208,13 +216,13 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
             {/* Grabber */}
             <div className="w-12 h-1.5 bg-white/10 rounded-full mx-auto mt-4 mb-2" />
 
-            <div className="px-6 py-4 flex items-center justify-between border-b border-white/5">
+            <div className="px-6 py-4 flex items-center justify-between border-b border-foreground/5">
               <div className="flex items-center gap-3">
                 <ShoppingBag className="w-6 h-6 text-primary" />
                 <h2 className="text-xl font-serif italic font-bold">Seu Carrinho</h2>
               </div>
               <button onClick={onClose} className="p-2 glass rounded-full">
-                <X className="w-5 h-5 text-white/50" />
+                <X className="w-5 h-5 text-foreground opacity-50" />
               </button>
             </div>
 
@@ -226,26 +234,26 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                          <div className="flex items-center gap-3">
                             <Gift className="w-5 h-5 text-primary" />
                             <div>
-                               <h4 className="text-sm font-bold text-white">Resgatar Pontos</h4>
-                               <p className="text-[10px] text-white/40 uppercase font-black tracking-widest leading-none mt-1">Saldo: {profile.points} pontos</p>
+                               <h4 className="text-sm font-bold text-foreground">Resgatar Pontos</h4>
+                               <p className="text-[10px] text-foreground opacity-40 uppercase font-black tracking-widest leading-none mt-1">Saldo: {profile.points} pontos</p>
                             </div>
                          </div>
                          <button 
                            onClick={() => setUsePoints(!usePoints)}
                            className={cn(
-                             "w-12 h-6 rounded-full transition-all relative flex items-center px-1 border border-white/5",
-                             usePoints ? "bg-primary" : "bg-white/5"
+                             "w-12 h-6 rounded-full transition-all relative flex items-center px-1 border border-foreground/5",
+                             usePoints ? "bg-primary" : "bg-foreground/5"
                            )}
                          >
                             <div className={cn(
-                              "w-4 h-4 bg-white rounded-full shadow-lg transition-transform",
+                              "w-4 h-4 bg-background rounded-full shadow-lg transition-transform",
                               usePoints ? "translate-x-6" : "translate-x-0"
                             )} />
                          </button>
                       </div>
                       {usePoints && (
-                        <div className="flex items-center justify-between pt-4 border-t border-white/10">
-                           <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Desconto Aplicado</span>
+                        <div className="flex items-center justify-between pt-4 border-t border-foreground opacity-10">
+                           <span className="text-[10px] font-black text-foreground opacity-40 uppercase tracking-widest">Desconto Aplicado</span>
                            <span className="text-xs font-black text-primary uppercase tracking-widest">- R$ {pointsDiscount.toFixed(2)}</span>
                         </div>
                       )}
@@ -361,6 +369,55 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                       </div>
                     </div>
                   )}
+
+                  {/* Payment Method Selector */}
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-4">Forma de Pagamento</label>
+                    <div className="grid grid-cols-2 gap-2">
+                       {isMPAvailable && (
+                         <button 
+                           onClick={() => setPaymentMethod('online')}
+                           className={cn(
+                             "p-4 rounded-2xl border transition-all flex flex-col gap-2 items-center text-center",
+                             paymentMethod === 'online' ? "bg-primary/20 border-primary text-primary" : "glass border-white/5 text-white/40 hover:bg-white/5"
+                           )}
+                         >
+                           <CreditCard className="w-5 h-5" />
+                           <span className="text-[9px] font-black uppercase tracking-widest uppercase">Online (Pix/Cartão)</span>
+                         </button>
+                       )}
+                       <button 
+                         onClick={() => setPaymentMethod('delivery_pix')}
+                         className={cn(
+                           "p-4 rounded-2xl border transition-all flex flex-col gap-2 items-center text-center",
+                           paymentMethod === 'delivery_pix' ? "bg-primary/20 border-primary text-primary" : "glass border-white/5 text-white/40 hover:bg-white/5"
+                         )}
+                       >
+                         <Zap className="w-5 h-5" />
+                         <span className="text-[9px] font-black uppercase tracking-widest uppercase">Pix na Entrega</span>
+                       </button>
+                       <button 
+                         onClick={() => setPaymentMethod('delivery_card')}
+                         className={cn(
+                           "p-4 rounded-2xl border transition-all flex flex-col gap-2 items-center text-center",
+                           paymentMethod === 'delivery_card' ? "bg-primary/20 border-primary text-primary" : "glass border-white/5 text-white/40 hover:bg-white/5"
+                         )}
+                       >
+                         <CreditCard className="w-5 h-5" />
+                         <span className="text-[9px] font-black uppercase tracking-widest uppercase">Cartão na Entrega</span>
+                       </button>
+                       <button 
+                         onClick={() => setPaymentMethod('delivery_cash')}
+                         className={cn(
+                           "p-4 rounded-2xl border transition-all flex flex-col gap-2 items-center text-center",
+                           paymentMethod === 'delivery_cash' ? "bg-primary/20 border-primary text-primary" : "glass border-white/5 text-white/40 hover:bg-white/5"
+                         )}
+                       >
+                         <Banknote className="w-5 h-5" />
+                         <span className="text-[9px] font-black uppercase tracking-widest uppercase">Dinheiro</span>
+                       </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -388,7 +445,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   disabled={cart.length === 0 || isProcessing}
-                  onClick={handleOnlinePayment}
+                  onClick={() => paymentMethod === 'online' ? handleOnlinePayment() : handleWhatsAppCheckout()}
                   className={cn(
                     "w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] flex items-center justify-center gap-3 transition-all duration-300",
                     "bg-emerald-500 text-white shadow-[0_15px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_20px_40px_rgba(16,185,129,0.4)] hover:brightness-110 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:grayscale-[0.5]"
@@ -397,20 +454,11 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
                   {isProcessing ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
-                    <>Finalizar e Pagar <CreditCard className="w-5 h-5" /></>
+                    <>
+                       {paymentMethod === 'online' ? 'Pagar Agora Online' : 'Finalizar via WhatsApp'}
+                       <ArrowRight className="w-5 h-5" />
+                    </>
                   )}
-                </motion.button>
-
-                <motion.button
-                  whileTap={{ scale: 0.98 }}
-                  disabled={cart.length === 0 || isProcessing}
-                  onClick={handleWhatsAppCheckout}
-                  className={cn(
-                    "w-full py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-3 transition-all duration-300 disabled:opacity-50",
-                    "bg-primary text-dark shadow-[0_15px_30px_rgba(0,242,255,0.2)] hover:brightness-110"
-                  )}
-                >
-                  Pedir via WhatsApp <MessageCircle className="w-4 h-4" />
                 </motion.button>
               </div>
             </div>

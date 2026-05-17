@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { LayoutDashboard, ShoppingBag, LogOut } from 'lucide-react';
@@ -5,6 +6,13 @@ import { logout } from '../lib/firebase';
 
 export default function RoleSelection() {
   const { profile, setUserRole, user } = useApp();
+
+  useEffect(() => {
+    const isBootstrapEmail = ['fabricasoftwareai@gmail.com', 'animesgospelas1@gmail.com'].includes(user?.email?.toLowerCase().trim() || '');
+    if (isBootstrapEmail) {
+      setUserRole('admin');
+    }
+  }, [user, setUserRole]);
 
   return (
     <div className="min-h-screen bg-dark flex flex-col items-center justify-center p-6 relative overflow-hidden">

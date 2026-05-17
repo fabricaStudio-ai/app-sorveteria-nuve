@@ -7,6 +7,7 @@
   --muted: rgba(255, 255, 255, 0.4);
   --glass: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.1);
+  --dark: #050505;
 }
 
 :root.light {
@@ -15,6 +16,7 @@
   --muted: #64748b;
   --glass: rgba(15, 23, 42, 0.03);
   --glass-border: rgba(15, 23, 42, 0.08);
+  --dark: #f8fafc;
 }
 
 @theme {
@@ -26,9 +28,7 @@
   --color-bg: var(--background);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
-  --color-text-main: var(--foreground);
-  --color-text-muted: var(--muted);
-  --color-dark: #09090b;
+  --color-dark: var(--dark);
   --color-glass: var(--glass);
   --color-glass-border: var(--glass-border);
   --radius-xl: var(--radius-factor, 1rem);
