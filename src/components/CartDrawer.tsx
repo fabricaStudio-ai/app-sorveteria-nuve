@@ -226,7 +226,7 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-8 pb-32">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-8" style={{ paddingBottom: '150px' }}>
               <div className="flex flex-col gap-6">
                 {profile && (profile.points || 0) >= 10 && (
                    <div className="glass rounded-[2rem] p-6 border-primary/20 bg-primary/5">
