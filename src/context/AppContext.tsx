@@ -135,7 +135,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Check for store in URL
       const urlParams = new URLSearchParams(window.location.search);
       const storeIdFromUrl = urlParams.get('store');
-      const storeNameFromUrl = urlParams.get('name') ? decodeURIComponent(urlParams.get('name')!) : null;
+      const nameParam = urlParams.get('name');
+      console.log("Raw name param:", nameParam);
+      const storeNameFromUrl = nameParam ? decodeURIComponent(nameParam) : null;
+      console.log("Decoded name param:", storeNameFromUrl);
 
       if (storeIdFromUrl) {
          setStore(prev => {

@@ -55,11 +55,12 @@ export default function Home() {
         }
         
         setDbProducts(allProducts);
-        const bestSellers = allProducts.filter(p => p.isBestSeller).slice(0, 6);
-        setFeaturedProducts(bestSellers.length > 0 ? bestSellers : allProducts.slice(0, 10));
-        setPromoProducts(allProducts.filter(p => p.category === 'promocao' || p.category === 'combos')); 
-        setCombos(allProducts.filter(p => p.category === 'combos'));
-        setActiveOffers(allPromos);
+        const filteredProducts = allProducts.filter(p => !store?.id || p.storeId === store.id);
+        const bestSellers = filteredProducts.filter(p => p.isBestSeller).slice(0, 6);
+        setFeaturedProducts(bestSellers.length > 0 ? bestSellers : filteredProducts.slice(0, 10));
+        setPromoProducts(filteredProducts.filter(p => p.category === 'promocao' || p.category === 'combos')); 
+        setCombos(filteredProducts.filter(p => p.category === 'combos'));
+        setActiveOffers(allPromos.filter(p => !store?.id || p.storeId === store.id));
 
       } catch (e) {
         console.error("Error fetching home data:", e);
@@ -245,10 +246,10 @@ export default function Home() {
       <section id="all-products-section" className="mb-10">
         <div className="flex items-center justify-between mb-6 px-1">
           <h3 className="opacity-60 text-[10px] font-black uppercase tracking-[0.2em]">Todos os Produtos</h3>
-          <span className="text-[8px] font-black opacity-20 uppercase tracking-widest">{dbProducts.length} itens</span>
+          <span className="text-[8px] font-black opacity-20 uppercase tracking-widest">{dbProducts.filter(p => !store?.id || p.storeId === store.id).length} itens</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-2">
-          {dbProducts.map((product, idx) => (
+          {dbProducts.filter(p => !store?.id || p.storeId === store.id).map((product, idx) => (
             <ProductCard key={`all-${product.id}`} product={product} index={idx} />
           ))}
         </div>
