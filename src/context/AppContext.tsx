@@ -136,8 +136,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const urlParams = new URLSearchParams(window.location.search);
       const storeIdFromUrl = urlParams.get('store');
       const nameParam = urlParams.get('name');
-      console.log("Raw name param:", nameParam);
-      const storeNameFromUrl = nameParam ? decodeURIComponent(nameParam) : null;
+      let storeNameFromUrl = null;
+      if (nameParam) {
+          try {
+              storeNameFromUrl = decodeURIComponent(nameParam);
+          } catch (e) {
+              storeNameFromUrl = nameParam; // If it fails, keep raw
+          }
+      }
       console.log("Decoded name param:", storeNameFromUrl);
 
       if (storeIdFromUrl) {

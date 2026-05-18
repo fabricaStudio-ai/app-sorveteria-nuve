@@ -537,7 +537,12 @@ export default function Admin() {
   };
 
   const handleSaveProduct = async () => {
-    if (!productForm.name || !productForm.price || !store?.id) return;
+    const urlStoreId = new URLSearchParams(location.search).get('store');
+    const storeId = store?.id || urlStoreId;
+    if (!productForm.name || !productForm.price || !storeId) {
+      alert("Erro: ID da loja não encontrado.");
+      return;
+    }
 
     try {
       const data = {
@@ -550,9 +555,9 @@ export default function Admin() {
       };
 
       if (editingProduct) {
-        await setDoc(doc(db, 'stores', store.id, 'products', editingProduct.id), data);
+        await setDoc(doc(db, 'stores', storeId, 'products', editingProduct.id), data);
       } else {
-        await addDoc(collection(db, 'stores', store.id, 'products'), {
+        await addDoc(collection(db, 'stores', storeId, 'products'), {
           ...data,
           createdAt: new Date().toISOString(),
           rating: 5

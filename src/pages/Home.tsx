@@ -32,6 +32,7 @@ export default function Home() {
         let allPromos: any[] = [];
 
         // If we have a specific store in context, ONLY load from that store
+        const urlStoreId = new URLSearchParams(window.location.search).get('store');
         if (store?.id) {
           console.log("Loading home data for store:", store.id);
           const productsSnap = await getDocs(query(collection(db, 'stores', store.id, 'products'), limit(30)));
@@ -39,7 +40,7 @@ export default function Home() {
           
           const promoSnap = await getDocs(query(collection(db, 'stores', store.id, 'promotions'), where('isActive', '==', true), limit(5)));
           allPromos = promoSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), storeId: store.id }));
-        } else {
+        } else if (!urlStoreId) {
           // PORTAL MODE: Load from multiple stores or root (optional, for the main platform landing)
           const storesSnap = await getDocs(collection(db, 'stores'));
           if (!storesSnap.empty) {
