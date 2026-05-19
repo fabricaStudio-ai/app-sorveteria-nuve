@@ -42,6 +42,8 @@ export default function Settings() {
   const [showLalamoveModal, setShowLalamoveModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showBrandingModal, setShowBrandingModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgrading, setUpgrading] = useState(false);
 
   const [savingLalamove, setSavingLalamove] = useState(false);
   const [savingBranding, setSavingBranding] = useState(false);
@@ -348,35 +350,14 @@ export default function Settings() {
              ))}
              {userRole !== 'admin' && (
                 <button 
-                  onClick={() => {
-                    if (confirm("ATENÇÃO: Você está prestes a se tornar um Gestor de Loja. Esta ação é irreversível na plataforma e suas permissões serão alteradas. Deseja continuar?")) {
-                      // Implementation: add to admins collection and update profile
-                      const upgradeRole = async () => {
-                        if (!user) return;
-                        try {
-                          await setDoc(doc(db, 'admins', user.uid), {
-                            addedAt: new Date().toISOString(),
-                          });
-                          await updateDoc(doc(db, 'profiles', user.uid), {
-                            isAdmin: true
-                          });
-                          setUserRole('admin');
-                          setToast({ message: "Parabéns! Você agora é um Gestor de Loja.", type: 'success' });
-                          setTimeout(() => window.location.reload(), 2000);
-                        } catch (error) {
-                          console.error("Failed to upgrade role:", error);
-                          setToast({ message: "Ocorreu um erro ao atualizar sua permissão.", type: 'error' });
-                        }
-                      };
-                      upgradeRole();
-                    }
-                  }}
+                  onClick={() => setShowUpgradeModal(true)}
                   className="w-full p-6 flex items-center justify-between hover:bg-primary/5 transition-colors border-t border-white/5 text-primary"
                 >
                   <div className="flex items-center gap-4">
-                     <Zap className="w-5 h-5" />
+                     <Zap className="w-5 h-5 animate-pulse" />
                      <span className="font-bold text-sm">Quero ser um Gestor</span>
                   </div>
+                  <ChevronRight className="w-4 h-4 text-primary/20" />
                 </button>
              )}
           </div>
@@ -768,6 +749,102 @@ export default function Settings() {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Upgrade to Manager Modal */}
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+          >
+            <div className="absolute inset-0 bg-dark/95 backdrop-blur-2xl" onClick={() => setShowUpgradeModal(false)} />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md glass-dark p-8 rounded-[3rem] border border-white/5 space-y-8 overflow-hidden text-center"
+            >
+              <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                <Zap className="w-10 h-10 text-primary animate-pulse" />
+              </div>
+              
+              <div className="space-y-4">
+                <h2 className="text-2xl font-serif italic font-bold">Tornar-se Gestor?</h2>
+                <p className="text-sm text-white/40 leading-relaxed">
+                  Você terá acesso ao painel administrativo, poderá cadastrar produtos, 
+                  configurar pagamentos e gerenciar seus pedidos.
+                </p>
+                
+                <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 text-xs font-bold text-primary flex items-start gap-3 text-left">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>Esta ação habilitará as ferramentas de venda para sua conta.</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={async () => {
+                    if (!user) return;
+                    setUpgrading(true);
+                    try {
+                      // 1. Create admin document
+                      await setDoc(doc(db, 'admins', user.uid), {
+                        addedAt: new Date().toISOString(),
+                        email: user.email,
+                        name: profile?.name || 'Gestor'
+                      });
+                      
+                      // 2. Create initial store if it doesn't exist
+                      const storeRef = doc(db, 'stores', user.uid);
+                      const storeSnap = await getDoc(storeRef);
+                      if (!storeSnap.exists()) {
+                        await setDoc(storeRef, {
+                          name: profile?.name ? `${profile.name} Store` : 'Minha Loja',
+                          ownerId: user.uid,
+                          themeColor: 'default',
+                          themeStructure: 'modern',
+                          createdAt: new Date().toISOString()
+                        });
+                       }
+
+                      // 3. Update profile
+                      await updateDoc(doc(db, 'profiles', user.uid), {
+                        preferredRole: 'admin',
+                        isAdmin: true
+                      });
+                      
+                      setUserRole('admin');
+                      setToast({ message: "Parabéns! Você agora é um Gestor.", type: 'success' });
+                      setTimeout(() => {
+                        window.location.href = '/admin'; // Redirect to admin panel
+                      }, 1500);
+                    } catch (error) {
+                      console.error("Failed to upgrade role:", error);
+                      setToast({ message: "Ocorreu um erro ao atualizar sua permissão.", type: 'error' });
+                    } finally {
+                      setUpgrading(false);
+                      setShowUpgradeModal(false);
+                    }
+                  }}
+                  disabled={upgrading}
+                  className="w-full py-5 bg-primary text-dark rounded-3xl text-[10px] font-black uppercase tracking-[0.2em] transition-all hover:brightness-110 disabled:opacity-50 shadow-xl shadow-primary/20"
+                >
+                  {upgrading ? 'Processando...' : 'SIM, QUERO SER GESTOR'}
+                </button>
+                
+                <button 
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="w-full py-4 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white/40 transition-all"
+                >
+                  Talvez mais tarde
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Profile Edit Modal */}
       <AnimatePresence>
         {showProfileModal && (

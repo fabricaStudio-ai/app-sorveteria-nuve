@@ -92,7 +92,7 @@ export default function Home() {
           <div>
             <h2 className="opacity-40 text-[10px] uppercase font-bold tracking-[0.3em] mb-1">Bem-vindo à</h2>
             <h1 className="text-2xl font-serif italic font-bold tracking-tighter neon-glow">
-              {store?.name || profile?.appName || 'App Delivery'}
+              {decodeURIComponent(store?.name || profile?.appName || 'App Delivery')}
             </h1>
           </div>
         </div>

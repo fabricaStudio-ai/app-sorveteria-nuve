@@ -12,6 +12,7 @@ export interface Product {
   maxFlavors?: number;
   availableFlavors?: string[];
   stock?: number;
+  storeId?: string;
 }
 
 export interface CartItem extends Product {

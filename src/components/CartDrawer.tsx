@@ -226,8 +226,8 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-8" style={{ paddingBottom: '150px' }}>
-              <div className="flex flex-col gap-6">
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-8 overscroll-contain custom-scrollbar">
+              <div className="flex flex-col gap-6 pb-20">
                 {profile && (profile.points || 0) >= 10 && (
                    <div className="glass rounded-[2rem] p-6 border-primary/20 bg-primary/5">
                       <div className="flex items-center justify-between mb-4">
@@ -422,8 +422,8 @@ export default function CartDrawer({ isOpen, onClose }: { isOpen: boolean, onClo
               )}
             </div>
 
-            {/* Footer - Fixed at Bottom */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 glass-dark border-t border-white/10 shadow-[0_-15px_30px_rgba(0,0,0,0.5)] bg-dark/95 backdrop-blur-xl">
+            {/* Footer */}
+            <div className="p-6 glass-dark border-t border-white/10 shadow-[0_-15px_30px_rgba(0,0,0,0.5)] bg-dark/95 backdrop-blur-xl">
               {error && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-4">
                   <p className="text-[10px] text-red-400 font-bold leading-tight">{error}</p>
