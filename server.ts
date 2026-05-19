@@ -101,8 +101,10 @@ app.get('/api/auth/mp/url', (req, res) => {
   const appUrl = process.env.APP_URL || (req.headers.origin ?? (req.headers.host ? `https://${req.headers.host}` : ''));
   const redirectUri = `${appUrl}/api/auth/mp/callback`;
 
+  console.log("DEBUG: Initiating MP OAuth with redirectUri:", redirectUri);
 
   if (!clientId) {
+    console.error("DEBUG: MP_CLIENT_ID not configured on server");
     return res.status(500).json({ error: "MP_CLIENT_ID not configured on server" });
   }
 
@@ -110,7 +112,6 @@ app.get('/api/auth/mp/url', (req, res) => {
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: 'code',
-    platform_id: 'mp',
     redirect_uri: redirectUri,
     state: userId as string
   });

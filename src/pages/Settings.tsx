@@ -196,9 +196,11 @@ export default function Settings() {
             setProfile(snap.data() as any);
           }
         }
+        setToast({ message: 'Mercado Pago conectado com sucesso!', type: 'success' });
         setConnecting(false);
       } else if (event.data?.type === 'MP_AUTH_ERROR') {
         console.error("MP Auth Error:", event.data.error);
+        setToast({ message: `Erro na conexão: ${event.data.error}`, type: 'error' });
         setConnecting(false);
       }
     };
@@ -212,7 +214,13 @@ export default function Settings() {
     setConnecting(true);
     try {
       const response = await fetch(`/api/auth/mp/url?userId=${user.uid}`);
-      const { url } = await response.json();
+      const data = await response.json();
+      
+      if (!response.ok || !data.url) {
+        throw new Error(data.error || 'Não foi possível obter a URL de conexão.');
+      }
+
+      const { url } = data;
       
       const width = 600;
       const height = 700;
@@ -224,8 +232,9 @@ export default function Settings() {
         'mp_auth_popup',
         `width=${width},height=${height},left=${left},top=${top}`
       );
-    } catch (e) {
+    } catch (e: any) {
       console.error("Error starting MP OAuth:", e);
+      setToast({ message: e.message || "Erro ao iniciar conexão automática.", type: 'error' });
       setConnecting(false);
     }
   };
